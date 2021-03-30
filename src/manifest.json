@@ -1,0 +1,9 @@
+{
+    "domain": "gira",
+    "name": "Gira Homeserver Integration",
+    "documentation": "",
+    "dependencies": [],
+    "codeowners": ["leoyn"],
+    "requirements": [],
+    "version": "0.0.1"
+}

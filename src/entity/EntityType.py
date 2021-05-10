@@ -6,3 +6,6 @@ class EntityType(Enum):
     LIGHT = 1
     DIMMABLE_LIGHT = 2
     OUTLET = 3
+    BLIND = 4
+    GARAGE = 5
+    THERMOSTAT = 6

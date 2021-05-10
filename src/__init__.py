@@ -6,6 +6,9 @@ from .entity.EntityType import EntityType
 from .entity.GiraLightEntity import GiraLightEntity
 from .entity.GiraDimmableLightEntity import GiraDimmableLightEntity
 from .entity.GiraOutletEntity import GiraOutletEntity
+from .entity.GiraBlindEntity import GiraBlindEntity
+from .entity.GiraThermostatEntity import GiraThermostatEntity
+
 from .PlatformEnumeration import PlatformEnumeration
 
 import enum
@@ -13,7 +16,12 @@ import logging
 import time
 
 
-platforms = [PlatformEnumeration.LIGHT, PlatformEnumeration.SWITCH]
+platforms = [
+    PlatformEnumeration.LIGHT,
+    PlatformEnumeration.SWITCH,
+    PlatformEnumeration.COVER,
+    PlatformEnumeration.SENSOR,
+]
 DOMAIN = "gira"
 
 
@@ -58,6 +66,10 @@ def determineEntityType(device):
             return EntityType.DIMMABLE_LIGHT, PlatformEnumeration.LIGHT
     elif searchName.find("steckdose") >= 0:
         return EntityType.OUTLET, PlatformEnumeration.SWITCH
+    elif searchName.find("rolladen") >= 0 or searchName.find("rollladen") >= 0:
+        return EntityType.BLIND, PlatformEnumeration.COVER
+    elif searchName.find("heizung") >= 0:
+        return EntityType.THERMOSTAT, PlatformEnumeration.SENSOR
 
     return EntityType.UNKNOWN, PlatformEnumeration.UNKNOWN
 
@@ -78,6 +90,10 @@ def translate_devices_to_entities(devices):
             entity = GiraDimmableLightEntity.create(device)
         elif entityType == EntityType.OUTLET:
             entity = GiraOutletEntity.create(device)
+        elif entityType == EntityType.BLIND:
+            entity = GiraBlindEntity.create(device)
+        elif entityType == EntityType.THERMOSTAT:
+            entity = GiraThermostatEntity.create(device)
 
         if platform != PlatformEnumeration.UNKNOWN and entityType != EntityType.UNKNOWN:
             entities[platform].append(entity)

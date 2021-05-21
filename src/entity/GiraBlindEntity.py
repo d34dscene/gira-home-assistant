@@ -17,10 +17,15 @@ class GiraBlindEntity(CoverEntity):
         self.device = device
         self._id = self.device.getId()
         self._name = " ".join(self.device.getName().split("\\")[1:])
+        self._value = None
 
     @property
     def name(self):
         return self._name
+
+    @property
+    def unique_id(self):
+        return self._id
 
     @property
     def device_class(self):
@@ -33,6 +38,9 @@ class GiraBlindEntity(CoverEntity):
     @property
     def supported_features(self):
         return SUPPORT_OPEN | SUPPORT_CLOSE | SUPPORT_SET_POSITION
+
+    def update(self):
+        pass
 
     def open_cover(self, **kwargs):
         self.device.setValue(0)

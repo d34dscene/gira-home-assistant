@@ -13,23 +13,21 @@ class GiraThermostatEntity(Entity):
         self._name = " ".join(self.device.getName().split("\\")[1:])
 
         try:
-            self._temperature = self.device.getValue()
+            self._value = self.device.getValue()
         except:
-            self._temperature = "-"
+            self._value = "-"
 
     @property
     def name(self):
         return self._name
 
-    def update(self):
-        try:
-            self._temperature = self.device.getValue()
-        except:
-            self._temperature = "-"
+    @property
+    def unique_id(self):
+        return self._id
 
     @property
     def state(self):
-        return str(self._temperature)
+        return str(self._value)
 
     @property
     def unit_of_measurement(self):
@@ -38,3 +36,6 @@ class GiraThermostatEntity(Entity):
     @property
     def device_class(self):
         return "temperature"
+
+    def update(self):
+        pass

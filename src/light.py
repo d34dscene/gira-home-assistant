@@ -1,4 +1,4 @@
-from . import DOMAIN
+from .const import DOMAIN
 from .PlatformEnumeration import PlatformEnumeration
 
 

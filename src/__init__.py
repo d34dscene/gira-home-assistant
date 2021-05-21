@@ -1,101 +1,57 @@
 """Gira Homeserver Integration"""
 
 import gira_homeserver_api
-
-from .entity.EntityType import EntityType
-from .entity.GiraLightEntity import GiraLightEntity
-from .entity.GiraDimmableLightEntity import GiraDimmableLightEntity
-from .entity.GiraOutletEntity import GiraOutletEntity
-from .entity.GiraBlindEntity import GiraBlindEntity
-from .entity.GiraThermostatEntity import GiraThermostatEntity
-
-from .PlatformEnumeration import PlatformEnumeration
-
-import enum
-import logging
+import voluptuous as vol
+import homeassistant.helpers.config_validation as cv
 import time
+import logging
 
 
-platforms = [
-    PlatformEnumeration.LIGHT,
-    PlatformEnumeration.SWITCH,
-    PlatformEnumeration.COVER,
-    PlatformEnumeration.SENSOR,
-]
-DOMAIN = "gira"
+from .const import DOMAIN
+from .PlatformManager import PlatformManager
+from .EntityTranslater import EntityTranslator
+from .ConfigurationEnumeration import ConfigurationEnumeration
+
+
+platformManager = PlatformManager.getInstance()
+entityLookupTable = {}
+LOGGER = logging.getLogger(__name__)
+
+
+def onDeviceValueListener(_id, value):
+    _id = str(_id)
+    if _id in entityLookupTable:
+        entity = entityLookupTable[_id]
+        entity._value = value
+        entity.async_write_ha_state()
 
 
 def setup(hass, config):
-
     config = config[DOMAIN]
 
     client = gira_homeserver_api.Client(
-        config["host"], int(config["port"]), config["username"], config["password"]
+        config[ConfigurationEnumeration.HOST.value],
+        int(config[ConfigurationEnumeration.PORT.value]),
+        config[ConfigurationEnumeration.USERNAME.value],
+        config[ConfigurationEnumeration.PASSWORD.value],
     )
+
+    client.onDeviceValue(onDeviceValueListener)
     client.connect(asynchronous=True, reconnect=False)
 
     time.sleep(2)
 
     parser = gira_homeserver_api.Parser()
     devices = parser.parse(client.getDevices(), client)
-
-    logger = logging.getLogger(__name__)
-    logger.info("Connected to Homeserver")
-
-    entities = translate_devices_to_entities(devices)
-    logger.debug("Translated devices to entities")
-
+    entities = EntityTranslator.translate_devices_to_entities(devices)
     hass.data[DOMAIN] = {"entities": entities}
-
-    load_platform_integrations(hass, config)
+    platformManager.load_platform_integrations(hass, config)
+    fillLookupTable(entities)
 
     return True
 
 
-def load_platform_integrations(hass, config):
-    for platform in platforms:
-        hass.helpers.discovery.load_platform(platform, DOMAIN, {}, config)
-
-
-def determineEntityType(device):
-    searchName = device.getName().lower()
-    if searchName.find("leuchte") >= 0:
-        if isinstance(device, gira_homeserver_api.BinaryDevice):
-            return EntityType.LIGHT, PlatformEnumeration.LIGHT
-        elif isinstance(device, gira_homeserver_api.NormalizedDevice):
-            return EntityType.DIMMABLE_LIGHT, PlatformEnumeration.LIGHT
-    elif searchName.find("steckdose") >= 0:
-        return EntityType.OUTLET, PlatformEnumeration.SWITCH
-    elif searchName.find("rolladen") >= 0 or searchName.find("rollladen") >= 0:
-        return EntityType.BLIND, PlatformEnumeration.COVER
-    elif searchName.find("heizung") >= 0:
-        return EntityType.THERMOSTAT, PlatformEnumeration.SENSOR
-
-    return EntityType.UNKNOWN, PlatformEnumeration.UNKNOWN
-
-
-def translate_devices_to_entities(devices):
-    entities = {}
-
-    for platform in platforms:
-        entities[platform] = []
-
-    for device in devices:
-        entity = None
-        entityType, platform = determineEntityType(device)
-
-        if entityType == EntityType.LIGHT:
-            entity = GiraLightEntity.create(device)
-        elif entityType == EntityType.DIMMABLE_LIGHT:
-            entity = GiraDimmableLightEntity.create(device)
-        elif entityType == EntityType.OUTLET:
-            entity = GiraOutletEntity.create(device)
-        elif entityType == EntityType.BLIND:
-            entity = GiraBlindEntity.create(device)
-        elif entityType == EntityType.THERMOSTAT:
-            entity = GiraThermostatEntity.create(device)
-
-        if platform != PlatformEnumeration.UNKNOWN and entityType != EntityType.UNKNOWN:
-            entities[platform].append(entity)
-
-    return entities
+def fillLookupTable(entities):
+    for platform in entities:
+        for entity in entities[platform]:
+            entityLookupTable[str(entity._id)] = entity

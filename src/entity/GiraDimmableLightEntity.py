@@ -16,37 +16,39 @@ class GiraDimmableLightEntity(LightEntity):
         self._name = " ".join(self.device.getName().split("\\")[1:])
 
         try:
-            self._brightness = self.device.getValue()
+            self._value = self.device.getValue()
         except:
-            self._brightness = 0
+            self._value = 0
 
     @property
     def name(self):
         return self._name
 
     @property
+    def unique_id(self):
+        return self._id
+
+    @property
     def is_on(self):
-        return self._brightness > 0
+        return self._value > 0
 
     @property
     def brightness(self):
-        return self._brightness * 255
-
-    def update(self):
-        try:
-            self._brightness = self.device.getValue()
-        except:
-            pass
+        return self._value * 255
 
     @property
     def unique_id(self):
         return self._id
 
+    def update(self):
+        pass
+
     def turn_on(self, **kwargs):
-        self._brightness = round(kwargs.get(ATTR_BRIGHTNESS, 255) * 1 / 255, 1)
-        self.device.setValue(self._brightness)
+        self._value = round(kwargs.get(ATTR_BRIGHTNESS, 255) * 1 / 255, 1)
+        self.device.setValue(self._value)
 
     def turn_off(self, **kwargs):
+        self._value = 0
         self.device.setValue(0)
 
     @property

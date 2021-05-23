@@ -1,18 +1,14 @@
 ## Installation
 
-1. Download as zip and unpack
+1. Download as zip, unpack and move the integration into your `custom_components` folder of home assistant installation.
 ```bash
 curl -o gira-integration.zip https://github.com/leoyn/gira-home-assistant/archive/refs/heads/production.zip
 unzip gira-integration.zip
-mkdir -p ./custom_components/gira
-cp gira-integration/src ./custom_components/gira
+cp -r gira-integration/custom_components/gira /path/to/hass/config/custom_components/gira
 ```
 
-2. Add the following to your `configuration.yaml`
-```yaml
-gira:
-  host: XXX.XXX.XXX.XXX
-  port: 80
-  username: <username>
-  password: <password>
-```
+2. Go to `Settings › Integration › Add Integration`
+3. Search for `Gira`
+4. Input your data
+
+**Notice: Change the placeholders to your setup accordingly**

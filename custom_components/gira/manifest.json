@@ -1,0 +1,11 @@
+{
+    "domain": "gira",
+    "name": "Gira Homeserver",
+    "documentation": "https://github.com/leoyn/gira-home-assistant/wiki",
+    "dependencies": [],
+    "codeowners": ["leoyn"],
+    "requirements": ["git+https://github.com/leoyn/gira-homeserver-api.git@master#gira_homeserver_api==0.1"],
+    "version": "0.0.1",
+    "config_flow": true,
+    "issue_tracker": "https://github.com/leoyn/gira-home-assistant/issues"
+}

@@ -60,7 +60,7 @@ def connect(hass, config):
 
     client.onDeviceValue(onDeviceValueListener)
     client.onClientReady(onClientReadyListener)
-    client.connect(asynchronous=True, reconnect=False)
+    client.connect(asynchronous=True, reconnect=True)
 
 
 def onHassStop(_data):

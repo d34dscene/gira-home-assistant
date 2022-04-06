@@ -25,4 +25,4 @@ class PlatformManager:
 
     def load_platform_integrations(self, hass, config):
         for platform in self.platforms:
-            hass.helpers.discovery.load_platform(platform, DOMAIN, {}, config)
+            hass.helpers.discovery.load_platform(platform.value, DOMAIN, {}, config)

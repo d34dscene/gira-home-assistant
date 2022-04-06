@@ -34,7 +34,7 @@ class GiraDimmableLightEntity(LightEntity):
 
     @property
     def brightness(self):
-        return self._value * 255
+        return self._value * 2.55
 
     @property
     def unique_id(self):

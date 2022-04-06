@@ -33,7 +33,11 @@ class GiraBlindEntity(CoverEntity):
 
     @property
     def is_closed(self):
-        return None
+        return self._value == 100
+
+    @property
+    def current_cover_position(self):
+        return self._value
 
     @property
     def supported_features(self):
@@ -43,9 +47,11 @@ class GiraBlindEntity(CoverEntity):
         pass
 
     def open_cover(self, **kwargs):
+        self._value = 0
         self.device.setValue(0)
 
     def close_cover(self, **kwargs):
+        self._value = 100
         self.device.setValue(1)
 
     def set_cover_position(self, **kwargs):

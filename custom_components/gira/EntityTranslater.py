@@ -17,7 +17,7 @@ class EntityTranslator:
     @staticmethod
     def determineEntityType(device):
         searchName = device.getName().lower()
-        if searchName.find("leuchte") >= 0:
+        if searchName.find("leucht") >= 0:
             if isinstance(device, gira_homeserver_api.BinaryDevice):
                 return EntityType.LIGHT, PlatformEnumeration.LIGHT
             elif isinstance(device, gira_homeserver_api.NormalizedDevice):

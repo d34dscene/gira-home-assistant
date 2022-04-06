@@ -4,19 +4,21 @@ import gira_homeserver_api
 import voluptuous as vol
 import homeassistant.helpers.config_validation as cv
 import time
+import os
+import json
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
-
 
 from .const import DOMAIN
 from .PlatformManager import PlatformManager
 from .EntityTranslater import EntityTranslator
 from .ConfigurationEnumeration import ConfigurationEnumeration
+from .entity.GiraBasicSensorEntity import GiraBasicSensorEntity
+from .PlatformEnumeration import PlatformEnumeration
+from .ClientSingleton import ClientSingleton
 
 
 platformManager = PlatformManager.getInstance()
 entityLookupTable = {}
-client = None
-
 
 def setup(hass, config):
     try:
@@ -35,8 +37,7 @@ async def async_setup_entry(hass, entry):
 
 
 def connect(hass, config):
-    global client
-    client = gira_homeserver_api.Client(
+    client = ClientSingleton.create(
         config[ConfigurationEnumeration.HOST.value],
         int(config[ConfigurationEnumeration.PORT.value]),
         config[ConfigurationEnumeration.USERNAME.value],
@@ -48,12 +49,29 @@ def connect(hass, config):
         if _id in entityLookupTable:
             entity = entityLookupTable[_id]
             entity._value = value
-            entity.async_write_ha_state()
+
+            try:
+                entity.async_write_ha_state()
+            except:
+                pass
 
     def onClientReadyListener(token):
         parser = gira_homeserver_api.Parser()
         devices = parser.parse(client.getDevices(), client)
         entities = EntityTranslator.translate_devices_to_entities(devices)
+
+        try:
+            with open( os.path.abspath(os.path.dirname(__file__) + "/custom_sensors.json")) as f:
+                sensors = json.loads(f.read())
+
+                if isinstance(sensors, list):
+                    for sensor in sensors:
+                        if isinstance(sensor, dict) and "id" in sensor and "name" in sensor:
+                            entity = GiraBasicSensorEntity.create(sensor["id"], sensor["name"], ClientSingleton.getInstance())
+                            entities[PlatformEnumeration.SENSOR].append(entity)
+        except IOError:
+            print("'custom_sensors.json' file not accessible")
+
         hass.data[DOMAIN] = {"entities": entities}
         platformManager.load_platform_integrations(hass, config)
         fillLookupTable(entities)
@@ -64,6 +82,8 @@ def connect(hass, config):
 
 
 def onHassStop(_data):
+    client = ClientSingleton.getInstance()
+
     if client != None:
         client.close()
 

@@ -9,3 +9,4 @@ class EntityType(Enum):
     BLIND = 4
     GARAGE = 5
     THERMOSTAT = 6
+    BASIC_SENSOR = 7

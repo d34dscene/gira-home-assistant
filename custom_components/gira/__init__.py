@@ -3,7 +3,6 @@
 import gira_homeserver_api
 import voluptuous as vol
 import homeassistant.helpers.config_validation as cv
-import time
 import os
 import json
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP

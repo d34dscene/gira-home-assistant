@@ -10,6 +10,7 @@ class GiraBasicSensorEntity(Entity):
 
         self._id = sensor["id"]
         self._name = sensor["name"]
+        self._value = None
 
         device_class = None
         unit_of_measurement = None
@@ -39,7 +40,7 @@ class GiraBasicSensorEntity(Entity):
 
     @property
     def state(self):
-        return str(self._value)
+        return self._value
 
     @property
     def unit_of_measurement(self):
@@ -48,6 +49,10 @@ class GiraBasicSensorEntity(Entity):
     @property
     def device_class(self):
         return self._device_class
+
+    @property
+    def available(self):
+        return self._value != None
 
     def update(self):
         try:

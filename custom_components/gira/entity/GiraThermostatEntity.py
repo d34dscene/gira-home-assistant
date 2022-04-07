@@ -1,8 +1,9 @@
-from homeassistant.helpers.entity import Entity
+from homeassistant.components.climate import ClimateEntity, ATTR_TEMPERATURE
 from homeassistant.const import TEMP_CELSIUS
+from homeassistant.components.climate.const import CURRENT_HVAC_HEAT
 
 
-class GiraThermostatEntity(Entity):
+class GiraThermostatEntity(ClimateEntity):
     @staticmethod
     def create(device):
         return GiraThermostatEntity(device)
@@ -11,11 +12,7 @@ class GiraThermostatEntity(Entity):
         self.device = device
         self._id = self.device.getId()
         self._name = " ".join(self.device.getName().split("\\")[1:])
-
-        try:
-            self._value = self.device.getValue()
-        except:
-            self._value = "-"
+        self._value = -1
 
     @property
     def name(self):
@@ -26,16 +23,39 @@ class GiraThermostatEntity(Entity):
         return self._id
 
     @property
-    def state(self):
-        return str(self._value)
+    def current_temperature(self):
+        return self._value
 
     @property
-    def unit_of_measurement(self):
+    def temperature_unit(self):
         return TEMP_CELSIUS
 
     @property
-    def device_class(self):
-        return "temperature"
+    def hvac_mode(self):
+        return CURRENT_HVAC_HEAT
+
+    @property
+    def hvac_modes(self):
+        return [CURRENT_HVAC_HEAT]
+
+    @property
+    def hvac_modes(self):
+        return []
+
+    @property
+    def supported_features(self):
+        return 0
+
+    def set_temperature(self, **kwargs):
+        self._value = kwargs[ATTR_TEMPERATURE]
+        self.device.setValue(self._value)
 
     def update(self):
-        pass
+        try:
+            value = self.device.getValue()
+            if value == None:
+                self._value = -1
+            else:
+                self._value = value
+        except:
+            pass

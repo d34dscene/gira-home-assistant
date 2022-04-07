@@ -4,12 +4,16 @@ from .entity.GiraDimmableLightEntity import GiraDimmableLightEntity
 from .entity.GiraOutletEntity import GiraOutletEntity
 from .entity.GiraBlindEntity import GiraBlindEntity
 from .entity.GiraThermostatEntity import GiraThermostatEntity
+from .entity.GiraGarageDoorEntity import GiraGarageDoorEntity
+
 
 from .PlatformEnumeration import PlatformEnumeration
 from .PlatformManager import PlatformManager
 
 import gira_homeserver_api
+import logging
 
+logger = logging.getLogger(__name__)
 platformManager = PlatformManager.getInstance()
 
 
@@ -28,8 +32,17 @@ class EntityTranslator:
             return EntityType.BLIND, PlatformEnumeration.COVER
         elif searchName.find("heizung") >= 0:
             return EntityType.THERMOSTAT, PlatformEnumeration.SENSOR
+        elif searchName.endswith("garage\garagentor aufwärts"):
+            return EntityType.GARAGE, PlatformEnumeration.COVER
 
         return EntityType.UNKNOWN, PlatformEnumeration.UNKNOWN
+    
+    @staticmethod
+    def searchForDevice(devices, query):
+        query = query.lower()
+        for device in devices:
+            if device.getName().lower().find(query) >= 0:
+                return device
 
     @staticmethod
     def translate_devices_to_entities(devices):
@@ -52,6 +65,10 @@ class EntityTranslator:
                 entity = GiraBlindEntity.create(device)
             elif entityType == EntityType.THERMOSTAT:
                 entity = GiraThermostatEntity.create(device)
+            elif entityType == EntityType.GARAGE:
+                open_device = device
+                close_device = EntityTranslator.searchForDevice(devices, "garage\garagentor abwärts")
+                entity = GiraGarageDoorEntity.create(device, open_device, close_device)
 
             if (
                 platform != PlatformEnumeration.UNKNOWN

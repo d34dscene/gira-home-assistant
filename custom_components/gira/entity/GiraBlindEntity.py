@@ -37,7 +37,8 @@ class GiraBlindEntity(CoverEntity):
 
     @property
     def current_cover_position(self):
-        return 100 - self._value
+        if self._value != None:
+            return 100 - self._value
 
     @property
     def supported_features(self):

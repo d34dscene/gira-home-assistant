@@ -37,7 +37,7 @@ class GiraBlindEntity(CoverEntity):
 
     @property
     def current_cover_position(self):
-        return self._value
+        return 100 - self._value
 
     @property
     def supported_features(self):
@@ -55,5 +55,5 @@ class GiraBlindEntity(CoverEntity):
         self.device.setValue(1)
 
     def set_cover_position(self, **kwargs):
-        self._value = kwargs[ATTR_POSITION]
-        self.device.setValue(kwargs[ATTR_POSITION] / 100)
+        self._value = 100 - kwargs[ATTR_POSITION]
+        self.device.setValue((100 - kwargs[ATTR_POSITION]) / 100)

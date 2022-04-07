@@ -2,19 +2,28 @@ from homeassistant.helpers.entity import Entity
 
 class GiraBasicSensorEntity(Entity):
     @staticmethod
-    def create(id, name, client):
-        return GiraBasicSensorEntity(id, name, client)
+    def create(sensor, client):
+        return GiraBasicSensorEntity(sensor, client)
 
-    def __init__(self, id, name, client):
+    def __init__(self, sensor, client):
         self.client = client
 
-        self._id = id
-        self._name = name
+        self._id = sensor["id"]
+        self._name = sensor["name"]
 
-        try:
-            self._value = client.getDeviceValue(self._id)
-        except:
-            self._value = "-"
+        device_class = None
+        unit_of_measurement = None
+
+        if "device_class" in sensor:
+            device_class = sensor["device_class"]
+
+        if "unit_of_measurement" in sensor:
+            unit_of_measurement = sensor["unit_of_measurement"]
+        
+        self._device_class = device_class
+        self._unit_of_measurement = unit_of_measurement
+
+        self.update()
 
     @property
     def name(self):
@@ -32,8 +41,16 @@ class GiraBasicSensorEntity(Entity):
     def state(self):
         return str(self._value)
 
+    @property
+    def unit_of_measurement(self):
+        return self._unit_of_measurement
+    
+    @property
+    def device_class(self):
+        return self._device_class
+
     def update(self):
         try:
-            self._value = client.getDeviceValue(self._id)
+            self._value = self.client.getDeviceValue(self._id)
         except:
             pass

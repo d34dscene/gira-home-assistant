@@ -67,7 +67,7 @@ def connect(hass, config):
                 if isinstance(sensors, list):
                     for sensor in sensors:
                         if isinstance(sensor, dict) and "id" in sensor and "name" in sensor:
-                            entity = GiraBasicSensorEntity.create(sensor["id"], sensor["name"], ClientSingleton.getInstance())
+                            entity = GiraBasicSensorEntity.create(sensor, ClientSingleton.getInstance())
                             entities[PlatformEnumeration.SENSOR].append(entity)
         except IOError:
             print("'custom_sensors.json' file not accessible")

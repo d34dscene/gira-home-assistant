@@ -11,9 +11,7 @@ from .PlatformEnumeration import PlatformEnumeration
 from .PlatformManager import PlatformManager
 
 import gira_homeserver_api
-import logging
 
-logger = logging.getLogger(__name__)
 platformManager = PlatformManager.getInstance()
 
 

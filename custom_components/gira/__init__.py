@@ -5,6 +5,7 @@ import voluptuous as vol
 import homeassistant.helpers.config_validation as cv
 import os
 import json
+import logging
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 
 from .const import DOMAIN
@@ -18,6 +19,7 @@ from .ClientSingleton import ClientSingleton
 
 platformManager = PlatformManager.getInstance()
 entityLookupTable = {}
+logger = logging.getLogger(__name__)
 
 def setup(hass, config):
     try:
@@ -60,7 +62,7 @@ def connect(hass, config):
         entities = EntityTranslator.translate_devices_to_entities(devices)
 
         try:
-            with open( os.path.abspath(os.path.dirname(__file__) + "/custom_sensors.json")) as f:
+            with open(os.path.abspath(os.path.dirname(__file__) + "/../gira-custom-sensors.json")) as f:
                 sensors = json.loads(f.read())
 
                 if isinstance(sensors, list):
@@ -69,7 +71,7 @@ def connect(hass, config):
                             entity = GiraBasicSensorEntity.create(sensor, ClientSingleton.getInstance())
                             entities[PlatformEnumeration.SENSOR].append(entity)
         except IOError:
-            print("'custom_sensors.json' file not accessible")
+            logger.debug("'gira-custom-sensors.json' file not accessible")
 
         hass.data[DOMAIN] = {"entities": entities}
         platformManager.load_platform_integrations(hass, config)

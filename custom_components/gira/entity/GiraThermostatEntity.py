@@ -1,5 +1,5 @@
 from homeassistant.components.climate import ClimateEntity, ATTR_TEMPERATURE
-from homeassistant.const import TEMP_CELSIUS, HVACAction.HEATING
+from homeassistant.const import TEMP_CELSIUS, HVACAction
 
 
 class GiraThermostatEntity(ClimateEntity):

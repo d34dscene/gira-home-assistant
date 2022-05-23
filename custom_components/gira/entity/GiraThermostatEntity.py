@@ -1,6 +1,5 @@
 from homeassistant.components.climate import ClimateEntity, ATTR_TEMPERATURE
-from homeassistant.const import TEMP_CELSIUS
-from homeassistant.components.climate.const import CURRENT_HVAC_HEAT
+from homeassistant.const import TEMP_CELSIUS, HVACAction.HEATING
 
 
 class GiraThermostatEntity(ClimateEntity):
@@ -32,11 +31,11 @@ class GiraThermostatEntity(ClimateEntity):
 
     @property
     def hvac_mode(self):
-        return CURRENT_HVAC_HEAT
+        return HVACAction.HEATING
 
     @property
     def hvac_modes(self):
-        return [CURRENT_HVAC_HEAT]
+        return [HVACAction.HEATING]
 
     @property
     def hvac_modes(self):

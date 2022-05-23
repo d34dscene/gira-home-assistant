@@ -8,7 +8,7 @@ class GiraOutletEntity(SwitchEntity):
 
     def __init__(self, device):
         self.device = device
-        self._value = self.device.getState()
+        self._value = None
         self._name = " ".join(self.device.getName().split("\\")[1:])
         self._id = self.device.getId()
 

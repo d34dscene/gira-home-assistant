@@ -1,8 +1,9 @@
 from homeassistant.components.climate import ClimateEntity, ATTR_TEMPERATURE
 from homeassistant.const import TEMP_CELSIUS
 from homeassistant.components.climate.const import HVACMode
+from .GiraEntity import GiraEntity
 
-class GiraThermostatEntity(ClimateEntity):
+class GiraThermostatEntity(ClimateEntity, GiraEntity):
     @staticmethod
     def create(device):
         return GiraThermostatEntity(device)

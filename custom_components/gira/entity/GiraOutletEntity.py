@@ -1,7 +1,7 @@
 from homeassistant.components.switch import SwitchEntity
+from .GiraEntity import GiraEntity
 
-
-class GiraOutletEntity(SwitchEntity):
+class GiraOutletEntity(SwitchEntity, GiraEntity):
     @staticmethod
     def create(device):
         return GiraOutletEntity(device)

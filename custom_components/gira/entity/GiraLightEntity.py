@@ -1,7 +1,7 @@
 from homeassistant.components.light import LightEntity
+from .GiraEntity import GiraEntity
 
-
-class GiraLightEntity(LightEntity):
+class GiraLightEntity(LightEntity, GiraEntity):
     @staticmethod
     def create(device):
         return GiraLightEntity(device)

@@ -4,11 +4,12 @@ from homeassistant.components.cover import (
     SUPPORT_OPEN,
     SUPPORT_CLOSE
 )
+from .GiraEntity import GiraEntity
 
 STATE_OPEN = "open"
 STATE_CLOSE = "close"
 
-class GiraGarageDoorEntity(CoverEntity):
+class GiraGarageDoorEntity(CoverEntity, GiraEntity):
     @staticmethod
     def create(feedback_device, open_device, close_device):
         return GiraGarageDoorEntity(feedback_device, open_device, close_device)

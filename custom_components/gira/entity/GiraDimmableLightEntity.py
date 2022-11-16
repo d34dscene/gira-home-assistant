@@ -3,9 +3,9 @@ from homeassistant.components.light import (
     SUPPORT_BRIGHTNESS,
     ATTR_BRIGHTNESS,
 )
+from .GiraEntity import GiraEntity
 
-
-class GiraDimmableLightEntity(LightEntity):
+class GiraDimmableLightEntity(LightEntity, GiraEntity):
     @staticmethod
     def create(device):
         return GiraDimmableLightEntity(device)

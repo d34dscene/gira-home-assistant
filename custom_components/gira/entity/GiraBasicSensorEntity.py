@@ -1,6 +1,7 @@
 from homeassistant.helpers.entity import Entity
+from .GiraEntity import GiraEntity
 
-class GiraBasicSensorEntity(Entity):
+class GiraBasicSensorEntity(Entity, GiraEntity):
     @staticmethod
     def create(sensor, client):
         return GiraBasicSensorEntity(sensor, client)

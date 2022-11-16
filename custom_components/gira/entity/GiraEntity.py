@@ -1,0 +1,2 @@
+class GiraEntity:
+    pass

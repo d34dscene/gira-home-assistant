@@ -6,9 +6,9 @@ from homeassistant.components.cover import (
     SUPPORT_SET_POSITION,
     ATTR_POSITION,
 )
+from .GiraEntity import GiraEntity
 
-
-class GiraBlindEntity(CoverEntity):
+class GiraBlindEntity(CoverEntity, GiraEntity):
     @staticmethod
     def create(device):
         return GiraBlindEntity(device)

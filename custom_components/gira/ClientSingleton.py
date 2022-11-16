@@ -5,12 +5,18 @@ class ClientSingleton:
 
     @staticmethod
     def create(host, port, username, password):
-        ClientSingleton.instance = gira_homeserver_api.Client(
-                host,
-                int(port),
-                username,
-                password,
-            )
+        if ClientSingleton.instance == None:
+            ClientSingleton.instance = gira_homeserver_api.Client(
+                    host,
+                    int(port),
+                    username,
+                    password,
+                )
+        else:
+            ClientSingleton.instance.host = host
+            ClientSingleton.instance.port = int(port)
+            ClientSingleton.instance.username = username
+            ClientSingleton.instance.password = password
 
         return ClientSingleton.instance
 

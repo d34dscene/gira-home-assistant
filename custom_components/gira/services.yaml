@@ -1,0 +1,19 @@
+set_device_value:
+  name: "Set device value"
+  description: "Set the device value using a telegram"
+  fields:
+    device_type:
+      name: "Device type"
+      required: true
+      selector:
+        select:
+          options:
+            - 1
+            - 20
+    device_id:
+      name: "Device ID"
+      example: 1337
+    value:
+      name: "Value"
+      description: "Value devices should be set to"
+      example: 1

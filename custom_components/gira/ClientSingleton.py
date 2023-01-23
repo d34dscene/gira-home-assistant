@@ -12,11 +12,6 @@ class ClientSingleton:
                     username,
                     password,
                 )
-        else:
-            ClientSingleton.instance.host = host
-            ClientSingleton.instance.port = int(port)
-            ClientSingleton.instance.username = username
-            ClientSingleton.instance.password = password
 
         return ClientSingleton.instance
 

@@ -22,10 +22,13 @@ entityLookupTable = {}
 logger = logging.getLogger(__name__)
 
 def setup(hass, config):
-    try:
-        connect(hass, config[DOMAIN])
-    except:
-        pass
+    if not DOMAIN in config:
+        logger.debug("No config in 'configuration.yml' present, falling back to config flow.")
+    else:
+        try:
+            connect(hass, config[DOMAIN])
+        except Exception as exception:
+            logging.critical(exception, exc_info=True)
 
     def handle_set_device_value(call):
         device_type = call.data.get("device_type")
@@ -42,6 +45,7 @@ def setup(hass, config):
 
 
 async def async_setup_entry(hass, entry):
+    logger.debug("Found config flow configuration")
     connect(hass, entry.data)
     return True
 
@@ -58,7 +62,7 @@ async def async_unload_entry(hass, entry):
         if ok == False:
             return False
     else:
-        logger.debug("Client is not setup")
+        logger.debug("Client could not be not set up")
     
     return True
 
@@ -71,24 +75,30 @@ def connect(hass, config):
     )
 
     def onDeviceValueListener(_id, value):
-        if client.state == 2:
-            _id = str(_id)
-            if _id in entityLookupTable:
-                entity = entityLookupTable[_id]
-                entity._value = value
+        _id = str(_id)
+        
+        if _id in entityLookupTable:
+            entity = entityLookupTable[_id]
+            entity._value = value
                 
-                try:
-                    entity.async_write_ha_state()
-                    logger.debug(f"changed value of entity {entity.name} ({_id}) to {value}")
-                except Exception as exception:
-                    logger.warning(f"failed to change entity value: {exception}")
+            try:
+                entity.async_write_ha_state()
+                logger.debug(f"changed value of entity {entity.name} ({_id}) to {value}")
+            except Exception as exception:
+                logger.warning(f"failed to change entity value: {exception}")
+        else:
+            logger.debug(f"no entity for {_id} found")
 
     def onClientReadyListener(token):
-        parser = gira_homeserver_api.Parser()
-        devices = parser.parse(client.getDevices(), client)
+        logger.debug("Connection established")
+
+        devices = gira_homeserver_api.Parser.parse(client.getDevices(), client)
+
+        logger.debug(f"Downloaded {len(devices)} devices from Gira client")
+
         entities = EntityTranslator.translate_devices_to_entities(devices)
 
-        logger.debug("Connection established")
+        logger.debug(f"Translated devices to entities ({len(entities)})")
 
         try:
             with open(os.path.abspath(os.path.dirname(__file__) + "/../gira-custom-sensors.json")) as f:
@@ -112,6 +122,9 @@ def connect(hass, config):
     client.onDeviceValue(onDeviceValueListener)
     client.onClientReady(onClientReadyListener)
     client.onConnectionError(onConnectionErrorListener)
+
+    logger.debug(f"Connecting to server '{client.host}'...")
+
     client.connect(asynchronous=True, reconnect=False)
 
 

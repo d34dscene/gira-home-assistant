@@ -8,7 +8,7 @@ class GiraLightEntity(LightEntity, GiraEntity):
 
     def __init__(self, device):
         self.device = device
-        self._value = int(self.device.getState() == True)
+        self._value = int(self.device.getState())
         self._name = " ".join(self.device.getName().split("\\")[1:])
         self._id = self.device.getId()
 

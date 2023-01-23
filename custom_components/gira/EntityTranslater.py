@@ -1,3 +1,4 @@
+import logging
 from .entity.EntityType import EntityType
 from .entity.GiraLightEntity import GiraLightEntity
 from .entity.GiraDimmableLightEntity import GiraDimmableLightEntity
@@ -20,18 +21,20 @@ class EntityTranslator:
     def determineEntityType(device):
         searchName = device.getName().lower()
         if searchName.find("leucht") >= 0:
-            if isinstance(device, gira_homeserver_api.BinaryDevice):
+            if isinstance(device, gira_homeserver_api.SwitchableDevice):
                 return EntityType.LIGHT, PlatformEnumeration.LIGHT
-            elif isinstance(device, gira_homeserver_api.NormalizedDevice):
+            elif isinstance(device, gira_homeserver_api.DimmableDevice):
                 return EntityType.DIMMABLE_LIGHT, PlatformEnumeration.LIGHT
         elif searchName.find("steckdose") >= 0:
-            return EntityType.OUTLET, PlatformEnumeration.SWITCH
-        elif searchName.find("rolladen") >= 0 or searchName.find("rollladen") >= 0:
-            return EntityType.BLIND, PlatformEnumeration.COVER
-        elif searchName.find("heizung") >= 0:
-            return EntityType.THERMOSTAT, PlatformEnumeration.SENSOR
+            if isinstance(device, gira_homeserver_api.SwitchableDevice):
+                return EntityType.OUTLET, PlatformEnumeration.SWITCH
         elif searchName.endswith("garage\garagentor aufwärts"):
-            return EntityType.GARAGE, PlatformEnumeration.COVER
+            if isinstance(device, gira_homeserver_api.SequenceDevice):
+                return EntityType.GARAGE, PlatformEnumeration.COVER
+        elif isinstance(device, gira_homeserver_api.CoverDevice):
+            return EntityType.BLIND, PlatformEnumeration.COVER
+        elif isinstance(device, gira_homeserver_api.ThermostatDevice):
+            return EntityType.THERMOSTAT, PlatformEnumeration.SENSOR
 
         return EntityType.UNKNOWN, PlatformEnumeration.UNKNOWN
     
@@ -64,9 +67,8 @@ class EntityTranslator:
             elif entityType == EntityType.THERMOSTAT:
                 entity = GiraThermostatEntity.create(device)
             elif entityType == EntityType.GARAGE:
-                open_device = device
                 close_device = EntityTranslator.searchForDevice(devices, "garage\garagentor abwärts")
-                entity = GiraGarageDoorEntity.create(device, open_device, close_device)
+                entity = GiraGarageDoorEntity.create(device, close_device)
 
             if (
                 platform != PlatformEnumeration.UNKNOWN

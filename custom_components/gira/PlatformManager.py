@@ -42,7 +42,7 @@ class PlatformManager:
                         entity_registry.async_get(hass).async_remove(_id)
                         logger.debug(f"successfully unloaded entity {_id}")
                 
-                await async_unload_platforms(entry, [platform.value])
+                await hass.config_entries.async_unload_platforms(entry, [platform.value])
 
         hass.data[DOMAIN] = {}
         

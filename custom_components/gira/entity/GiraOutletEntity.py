@@ -8,9 +8,9 @@ class GiraOutletEntity(SwitchEntity, GiraEntity):
 
     def __init__(self, device):
         self.device = device
-        self._value = None
-        self._name = " ".join(self.device.getName().split("\\")[1:])
         self._id = self.device.getId()
+        self._value = int(device.getState())
+        self._name = " ".join(self.device.getName().split("\\")[1:])
 
     @property
     def name(self):
@@ -22,7 +22,7 @@ class GiraOutletEntity(SwitchEntity, GiraEntity):
 
     @property
     def is_on(self):
-        return self._value
+        return self._value == 1
 
     def update(self):
         pass

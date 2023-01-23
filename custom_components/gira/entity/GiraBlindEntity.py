@@ -15,9 +15,9 @@ class GiraBlindEntity(CoverEntity, GiraEntity):
 
     def __init__(self, device):
         self.device = device
-        self._id = self.device.getId()
+        self._id = self.device.getSensorId()
         self._name = " ".join(self.device.getName().split("\\")[1:])
-        self._value = None
+        self._value = self.device.getPosition()
 
     @property
     def name(self):
@@ -37,8 +37,12 @@ class GiraBlindEntity(CoverEntity, GiraEntity):
 
     @property
     def current_cover_position(self):
+        value = 0
+
         if self._value != None:
-            return 100 - self._value
+            value = self._value
+
+        return 100 - value
 
     @property
     def supported_features(self):
@@ -48,13 +52,11 @@ class GiraBlindEntity(CoverEntity, GiraEntity):
         pass
 
     def open_cover(self, **kwargs):
-        self._value = 0
-        self.device.setValue(0)
+        self.device.setPosition(0)
 
     def close_cover(self, **kwargs):
-        self._value = 100
-        self.device.setValue(1)
+        self.device.setPosition(100)
 
     def set_cover_position(self, **kwargs):
         self._value = 100 - kwargs[ATTR_POSITION]
-        self.device.setValue((100 - kwargs[ATTR_POSITION]) / 100)
+        self.device.setPosition(100 - kwargs[ATTR_POSITION])

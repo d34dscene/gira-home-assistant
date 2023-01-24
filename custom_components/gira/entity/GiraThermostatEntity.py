@@ -63,6 +63,6 @@ class GiraThermostatEntity(ClimateEntity, GiraEntity):
             if set_value == None:
                 self._set_value = -1
             else:
-                self._set_value = current_value
+                self._set_value = set_value
         except:
             pass

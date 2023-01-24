@@ -44,10 +44,6 @@ class GiraThermostatEntity(ClimateEntity, GiraEntity):
         return [HVACMode.HEAT]
 
     @property
-    def hvac_modes(self):
-        return []
-
-    @property
     def supported_features(self):
         return ClimateEntityFeature.TARGET_TEMPERATURE
 

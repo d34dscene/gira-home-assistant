@@ -34,7 +34,7 @@ class EntityTranslator:
         elif isinstance(device, gira_homeserver_api.CoverDevice):
             return EntityType.BLIND, PlatformEnumeration.COVER
         elif isinstance(device, gira_homeserver_api.ThermostatDevice):
-            return EntityType.THERMOSTAT, PlatformEnumeration.SENSOR
+            return EntityType.THERMOSTAT, PlatformEnumeration.CLIMATE
 
         return EntityType.UNKNOWN, PlatformEnumeration.UNKNOWN
     

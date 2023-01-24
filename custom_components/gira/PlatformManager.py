@@ -22,6 +22,7 @@ class PlatformManager:
             PlatformEnumeration.SWITCH,
             PlatformEnumeration.COVER,
             PlatformEnumeration.SENSOR,
+            PlatformEnumeration.CLIMATE
         ]
 
     def getPlatforms(self):

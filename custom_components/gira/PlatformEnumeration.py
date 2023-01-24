@@ -7,3 +7,4 @@ class PlatformEnumeration(str, Enum):
     SWITCH = "switch"
     COVER = "cover"
     SENSOR = "sensor"
+    CLIMATE = "climate"

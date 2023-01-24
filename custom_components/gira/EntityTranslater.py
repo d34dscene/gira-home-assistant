@@ -68,7 +68,8 @@ class EntityTranslator:
                 entity = GiraThermostatEntity.create(device)
             elif entityType == EntityType.GARAGE:
                 close_device = EntityTranslator.searchForDevice(devices, "garage\garagentor abwärts")
-                entity = GiraGarageDoorEntity.create(device, close_device)
+                feedback_device = EntityTranslator.searchForDevice(devices, "alle räume\garagentor")
+                entity = GiraGarageDoorEntity.create(feedback_device, device, close_device)
 
             if (
                 platform != PlatformEnumeration.UNKNOWN

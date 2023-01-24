@@ -11,16 +11,23 @@ STATE_CLOSE = "close"
 
 class GiraGarageDoorEntity(CoverEntity, GiraEntity):
     @staticmethod
-    def create(open_device, close_device):
-        return GiraGarageDoorEntity(open_device, close_device)
+    def create(feedback_device, open_device, close_device):
+        return GiraGarageDoorEntity(feedback_device, open_device, close_device)
 
-    def __init__(self, open_device, close_device):
+    def __init__(self, feedback_device, open_device, close_device):
+        self.feedback_device = feedback_device
         self.open_device = open_device
         self.close_device = close_device
 
-        self._id = self.open_device.getId()
+        self._id = self.feedback_device.getId()
         self._name = " ".join(self.open_device.getName().split("\\")[1:])
-        self._value = None
+
+        value = feedback_device.getValue()
+
+        if value == None:
+            value = 0
+
+        self._value = value
 
     @property
     def name(self):

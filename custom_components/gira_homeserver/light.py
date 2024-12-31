@@ -50,7 +50,7 @@ class GiraLight(LightEntity):
     @property
     def is_on(self) -> bool|None:
         """Return true if light is on."""
-        return int(float(self._device["value"])) > 0
+        return int(float(self._device["value"])) == 1
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the light on."""
@@ -68,6 +68,11 @@ class GiraDimmer(GiraLight):
         super().__init__(client, device_id, device)
         self._attr_color_mode = ColorMode.BRIGHTNESS
         self._attr_supported_color_modes = {ColorMode.BRIGHTNESS}
+
+    @property
+    def is_on(self) -> bool|None:
+        """Return true if light is on."""
+        return int(float(self._device["value"])) > 0
 
     @property
     def brightness(self) -> int|None:

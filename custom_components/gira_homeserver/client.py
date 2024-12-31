@@ -234,6 +234,7 @@ class GiraClient:
 
         try:
             await self._write(f"1|{device_id}|{value}")
+            self.devices[device_id]["value"] = value
         except Exception:
             _LOGGER.exception("Error updating device value")
 

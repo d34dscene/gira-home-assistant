@@ -49,7 +49,6 @@ class GiraClient:
 
                 if self.state == State.LOGGED_IN:
                     asyncio.create_task(self._monitor())
-                    # await self._monitor()
                     return
                 else:
                     _LOGGER.error("Login failed")
@@ -119,7 +118,8 @@ class GiraClient:
                         self.devices[device_id]["value"] = device_value
                         _LOGGER.debug("Device %s updated to %s", device_id, device_value)
             except Exception as err:
-                _LOGGER.error("Monitor error: %s", err)
+                _LOGGER.debug("Monitor error: %s", err)
+                continue
 
     async def _read(self):
         """Safely read data using a lock to prevent concurrent read access."""

@@ -15,9 +15,8 @@ _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [
     Platform.LIGHT,
-    Platform.SWITCH,
     Platform.COVER,
-    Platform.CLIMATE,
+    # Platform.CLIMATE, # Adding later
 ]
 
 
@@ -44,13 +43,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     try:
         # Attempt to connect and validate authentication
-        await hass.async_add_executor_job(client.connect)
+        await client.connect()
         if client.state != State.LOGGED_IN:
             _LOGGER.error("Failed to log in to Gira Homeserver")
             return False
     except Exception as ex:
         _LOGGER.error("Error connecting to Gira Homeserver: %s", ex)
         return False
+
+    # Store the client in Home Assistant's data for this domain
+    hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN][entry.entry_id] = client
 
     # Register services
     async def handle_refresh_devices(call):
@@ -86,9 +89,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.services.async_register(
         DOMAIN, "set_device_value", handle_set_device_value
     )
-
-    # Store the client in Home Assistant's data for this domain
-    hass.data[DOMAIN][entry.entry_id] = client
 
     # Forward the config entry to supported platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

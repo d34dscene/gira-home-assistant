@@ -35,7 +35,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     )
 
     try:
-        await hass.async_add_executor_job(client.connect)
+        await client.connect()
         if client.state != State.LOGGED_IN:
             raise InvalidAuth
     except Exception as err:

@@ -5,6 +5,8 @@ import logging
 from typing import Any
 
 from homeassistant.components.cover import (
+    ATTR_POSITION,
+    CoverDeviceClass,
     CoverEntity,
     CoverEntityFeature,
 )
@@ -41,6 +43,7 @@ class GiraCover(CoverEntity):
         self._device = device
         self._attr_name = device["name"]
         self._attr_unique_id = f"{DOMAIN}_cover_{device_id}"
+        self._attr_device_class = CoverDeviceClass.BLIND
         self._attr_supported_features = (
             CoverEntityFeature.OPEN
             | CoverEntityFeature.CLOSE
@@ -51,7 +54,10 @@ class GiraCover(CoverEntity):
     @property
     def current_cover_position(self) -> int|None:
         """Return current position of cover."""
-        return int(float(self._device["value"]) * 100)
+        value = 0
+        if self._device["value"] is not None:
+            value = int(float(self._device["value"]))
+        return 100 - value
 
     @property
     def is_closed(self) -> bool|None:
@@ -60,11 +66,11 @@ class GiraCover(CoverEntity):
 
     async def async_open_cover(self, **kwargs: Any) -> None:
         """Open the cover."""
-        await self._client.update_device_value(self._device_id, "1.0")
+        await self._client.update_device_value(self._device_id, "100")
 
     async def async_close_cover(self, **kwargs: Any) -> None:
         """Close the cover."""
-        await self._client.update_device_value(self._device_id, "0.0")
+        await self._client.update_device_value(self._device_id, "0")
 
     async def async_stop_cover(self, **kwargs: Any) -> None:
         """Stop the cover."""
@@ -73,6 +79,5 @@ class GiraCover(CoverEntity):
 
     async def async_set_cover_position(self, **kwargs: Any) -> None:
         """Move the cover to a specific position."""
-        position = kwargs["position"]
-        value = position / 100
-        await self._client.update_device_value(self._device_id, f"{value:.1f}")
+        position = 100 - kwargs.get(ATTR_POSITION, 0)
+        await self._client.update_device_value(self._device_id, f"{position}")

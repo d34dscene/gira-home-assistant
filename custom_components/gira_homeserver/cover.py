@@ -74,8 +74,8 @@ class GiraCover(CoverEntity):
 
     async def async_stop_cover(self, **kwargs: Any) -> None:
         """Stop the cover."""
-        current_position = float(self._device["value"])
-        await self._client.update_device_value(self._device_id, f"{current_position:.1f}")
+        position = self._client.get_device_value(self._device_id)
+        await self._client.update_device_value(self._device_id, f"{position}")
 
     async def async_set_cover_position(self, **kwargs: Any) -> None:
         """Move the cover to a specific position."""

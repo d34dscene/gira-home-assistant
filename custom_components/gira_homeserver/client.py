@@ -15,10 +15,6 @@ class State(Enum):
     CONNECTED = 2
     LOGGED_IN = 3
 
-class GiraClientError(Exception):
-    """Base exception for Gira Client."""
-    pass
-
 class GiraClient:
     """Gira HomeServer client."""
 
@@ -77,8 +73,9 @@ class GiraClient:
             self._writer.close()
             try:
                 await self._writer.wait_closed()
-            except Exception as err:
-                _LOGGER.error("Error closing connection: %s", err)
+                _LOGGER.debug("Successfully disconnected from Gira HomeServer")
+            except Exception:
+                _LOGGER.exception("Error during disconnect")
         self.state = State.DISCONNECTED
 
     async def _login(self):
@@ -99,9 +96,10 @@ class GiraClient:
                 """Login successful"""
                 self.state = State.LOGGED_IN
                 self._token = str(messages[0][0])
+                _LOGGER.info("Successfully logged in to Gira HomeServer")
                 break
             else:
-                logging.warning(f"Unhandled action during login: {action}")
+                _LOGGER.warning(f"Unhandled action during login: {action}")
 
     async def _monitor(self) -> None:
         """Monitor for updates from the server."""
@@ -116,10 +114,10 @@ class GiraClient:
                     device_value = m[1]
                     if device_id in self.devices:
                         self.devices[device_id]["value"] = device_value
-                        _LOGGER.debug("Device %s updated to %s", device_id, device_value)
-            except Exception as err:
-                _LOGGER.debug("Monitor error: %s", err)
-                continue
+                        _LOGGER.debug("Device %s updated: %s", device_id, device_value)
+            except Exception:
+                _LOGGER.exception("Error in monitor loop")
+                await asyncio.sleep(1)
 
     async def _read(self):
         """Safely read data using a lock to prevent concurrent read access."""
@@ -129,11 +127,11 @@ class GiraClient:
         async with self._lock:
             data = await self._reader.read(2048)
             if not data:
-                raise ValueError("No data received")
+                raise ConnectionError("No data received")
 
             raw_messages = data.decode().strip("\x00").split("|")
             if not raw_messages or len(raw_messages) < 2:
-                raise ValueError("Malformed response data")
+                raise ConnectionError("Malformed response data")
 
             action = int(raw_messages[0])
             messages = [
@@ -144,20 +142,23 @@ class GiraClient:
 
     async def _write(self, data):
         if not self._writer:
-            raise ConnectionError("Writer is not initialized")
+            _LOGGER.error("Writer is not initialized")
+            return
 
-        if self.state in [State.CONNECTED, State.LOGGED_IN]:
-            try:
-                self._writer.write((data + "\x00").encode())
-                await self._writer.drain()
-            except Exception as e:
-                logging.error(f"Error sending message: {e}")
-        else:
-            raise ConnectionError("Client is not connected")
+        if self.state not in [State.CONNECTED, State.LOGGED_IN]:
+            _LOGGER.error("Client is not connected")
+            return
+
+        try:
+            self._writer.write((data + "\x00").encode())
+            await self._writer.drain()
+        except Exception:
+            _LOGGER.exception("Error sending message")
 
     async def discover_devices(self):
         """Discover devices from the Gira HomeServer."""
         if self.state != State.LOGGED_IN or not self._token:
+            _LOGGER.error("Not connected")
             return
 
         _LOGGER.debug("Discovering devices...")
@@ -179,7 +180,10 @@ class GiraClient:
         connection_mapping = {
             "switch": {"type": "light", "value": "0.0"},
             "dim_val": {"type": "dimmer", "value": "0.0"},
+            "slot_short": {"type": "cover", "value": "0.0"},
+            "slot_long": {"type": "cover", "value": "0.0"},
             "slot_position": {"type": "cover", "value": "0.0"},
+            "slot_position_lamelle": {"type": "cover", "value": "0.0"},
         }
 
         for device in root.findall("device"):
@@ -215,27 +219,26 @@ class GiraClient:
             await self._write(f"2|{device_id}|0")
             action, messages = await self._read()
             if action != 1:
-                _LOGGER.error("Error getting device value: %s", messages)
                 return "0.0"
 
             for m in messages:
                 if m[0] == device_id:
                     self.devices[device_id]["value"] = m[1]  # Update device value too
                     return m[1]
-        except Exception as err:
-            _LOGGER.error("Error getting device value: %s", err)
+        except Exception:
+            _LOGGER.exception("Error getting device value")
         return "0.0"
 
     async def update_device_value(self, device_id: str, value: str) -> None:
         """Update device value."""
         if self.state != State.LOGGED_IN:
-            raise GiraClientError("Not connected")
+            _LOGGER.error("Not connected")
+            return
 
         try:
             await self._write(f"1|{device_id}|{value}")
-            self.devices[device_id]["value"] = value
-        except Exception as err:
-            _LOGGER.error("Error updating device value: %s", err)
+        except Exception:
+            _LOGGER.exception("Error updating device value")
 
     def _generate_hash(self, username, password, salt):
         salt = [ord(c) for c in salt]

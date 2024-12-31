@@ -1,5 +1,5 @@
 {
-  "name": "gira-home-assistant",
+  "name": "gira_homeserver",
   "homeassistant": "2024.4.1",
-  "filename": "gira.zip"
+  "filename": "gira_homeserver.zip"
 }

@@ -1,0 +1,43 @@
+refresh_devices:
+  name: Refresh devices
+  description: Rediscover all devices from the Gira HomeServer.
+  target:
+    entity:
+      integration: gira_homeserver
+
+send_raw_command:
+  name: Send raw command
+  description: Send a raw command to the Gira HomeServer.
+  target:
+    entity:
+      integration: gira_homeserver
+  fields:
+    command:
+      name: Command
+      description: The raw command to send
+      required: true
+      example: "1|12345|1.0"
+      selector:
+        text:
+
+set_device_value:
+  name: Set device value
+  description: Set a specific value for a device.
+  target:
+    entity:
+      integration: gira_homeserver
+  fields:
+    device_id:
+      name: Device ID
+      description: The ID of the device to control
+      required: true
+      example: "12345"
+      selector:
+        text:
+    value:
+      name: Value
+      description: The value to set
+      required: true
+      example: "1.0"
+      selector:
+        text:

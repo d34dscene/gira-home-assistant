@@ -1,8 +1,0 @@
-[
-    {
-        "id": 1337,
-        "name": "My custom sensor",
-        "device_class": "carbon_dioxide",
-        "unit_of_measurement": "ppm"
-    }
-]

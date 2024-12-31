@@ -50,15 +50,15 @@ class GiraLight(LightEntity):
     @property
     def is_on(self) -> bool|None:
         """Return true if light is on."""
-        return float(self._device["value"]) > 0
+        return int(float(self._device["value"])) > 0
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the light on."""
-        await self._client.update_device_value(self._device_id, "1.0")
+        await self._client.update_device_value(self._device_id, "1")
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the light off."""
-        await self._client.update_device_value(self._device_id, "0.0")
+        await self._client.update_device_value(self._device_id, "0")
 
 class GiraDimmer(GiraLight):
     """Representation of a Gira HomeServer dimmer."""
@@ -72,10 +72,13 @@ class GiraDimmer(GiraLight):
     @property
     def brightness(self) -> int|None:
         """Return the brightness of this light between 0..255."""
-        return int(float(self._device["value"]) * 255)
+        return int(float(self._device["value"]) * 2.55)
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the light on."""
-        brightness = kwargs.get(ATTR_BRIGHTNESS, 255)
-        value = brightness / 255
-        await self._client.update_device_value(self._device_id, f"{value:.1f}")
+        brightness = round(kwargs.get(ATTR_BRIGHTNESS, 255) / 2.55, 1)
+        await self._client.update_device_value(self._device_id, f"{brightness}")
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Turn the light off."""
+        await self._client.update_device_value(self._device_id, "0")

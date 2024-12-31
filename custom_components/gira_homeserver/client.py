@@ -180,10 +180,7 @@ class GiraClient:
         connection_mapping = {
             "switch": {"type": "light", "value": "0.0"},
             "dim_val": {"type": "dimmer", "value": "0.0"},
-            "slot_short": {"type": "cover", "value": "0.0"},
-            "slot_long": {"type": "cover", "value": "0.0"},
             "slot_position": {"type": "cover", "value": "0.0"},
-            "slot_position_lamelle": {"type": "cover", "value": "0.0"},
         }
 
         for device in root.findall("device"):

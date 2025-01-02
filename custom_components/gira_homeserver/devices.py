@@ -81,10 +81,6 @@ DEVICE_TYPES = {
         name="light",
         slots=["switch", "switch_rm"],
     ),
-    # "door": DeviceType(
-    #     name="door",
-    #     slots=["slot_switch"],
-    # ),
     "dimmer": DeviceType(
         name="dimmer",
         slots=["dim_s", "dim_val"],
@@ -93,4 +89,8 @@ DEVICE_TYPES = {
         name="cover",
         slots=["slot_short", "slot_long", "slot_position"],
     ),
+    # "door": DeviceType(
+    #     name="door",
+    #     slots=["slot_switch"],
+    # ),
 }

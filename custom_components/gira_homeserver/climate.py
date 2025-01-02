@@ -49,7 +49,7 @@ class GiraClimate(ClimateEntity):
         self._attr_target_temperature_low = 0
         self._attr_target_temperature_high = 30
         self._attr_temperature_unit = UnitOfTemperature.CELSIUS
-        self._attr_HVAC_MODE = HVACMode.HEAT
+        self._attr_hvac_modes = [HVACMode.HEAT]
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
         """Turn the switch on."""

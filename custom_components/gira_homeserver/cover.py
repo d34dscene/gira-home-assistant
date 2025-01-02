@@ -80,7 +80,7 @@ class GiraCover(CoverEntity):
     async def async_stop_cover(self, **kwargs: Any) -> None:
         """Stop the cover using the short press."""
         await self._client.update_device_value(self._device_id, self._short_id, "0")
-        self._device["slot_position_val"] = "100"
+        self._device["slot_position_val"] = "50"
 
     async def async_set_cover_position(self, **kwargs: Any) -> None:
         """Move the cover to a specific position."""

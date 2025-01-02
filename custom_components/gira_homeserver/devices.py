@@ -89,8 +89,12 @@ DEVICE_TYPES = {
         name="cover",
         slots=["slot_short", "slot_long", "slot_position"],
     ),
-    # "door": DeviceType(
-    #     name="door",
-    #     slots=["slot_switch"],
-    # ),
+    "climate": DeviceType(
+        name="climate",
+        slots=["slot_targetvalue", "slot_temp_target", "slot_temp_actual"],
+    ),
+    "switch": DeviceType(
+        name="switch",
+        slots=["slot_switch"],
+    ),
 }

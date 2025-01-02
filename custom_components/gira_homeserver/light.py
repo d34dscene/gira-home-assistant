@@ -66,8 +66,12 @@ class GiraDimmer(GiraLight):
 
     def __init__(self, client: GiraClient, device_id: str, device: dict):
         """Initialize the dimmer."""
-        super().__init__(client, device_id, device)
+        self._client = client
+        self._device = device
+        self._device_id = device_id
         self._dim_val_id = device["dim_val_id"]
+        self._attr_name = device["name"]
+        self._attr_unique_id = f"{DOMAIN}_dimmer_{device_id}"
         self._attr_color_mode = ColorMode.BRIGHTNESS
         self._attr_supported_color_modes = {ColorMode.BRIGHTNESS}
 

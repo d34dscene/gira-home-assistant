@@ -65,17 +65,17 @@ class GiraCover(CoverEntity):
     @property
     def is_closed(self) -> bool|None:
         """Return if the cover is closed."""
-        return self.current_cover_position == 0
+        return self._device["slot_position_val"] == "100"
 
     async def async_open_cover(self, **kwargs: Any) -> None:
         """Open the cover simluating a long press."""
         await self._client.update_device_value(self._device_id, self._long_id, "0")
-        self._device["slot_position_val"] = "100"
+        self._device["slot_position_val"] = "0"
 
     async def async_close_cover(self, **kwargs: Any) -> None:
         """Close the cover simluating a long press."""
         await self._client.update_device_value(self._device_id, self._long_id, "1")
-        self._device["slot_position_val"] = "0"
+        self._device["slot_position_val"] = "100"
 
     async def async_stop_cover(self, **kwargs: Any) -> None:
         """Stop the cover using the short press."""

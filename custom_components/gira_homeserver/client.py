@@ -2,11 +2,12 @@ import asyncio
 import hashlib
 import logging
 from typing import Dict, Optional
-import xml.etree.ElementTree as ET
 from enum import Enum
 
 import aiohttp
 from homeassistant.exceptions import ConfigEntryNotReady
+
+from custom_components.gira_homeserver.devices import DeviceParser
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -41,7 +42,6 @@ class GiraClient:
                 )
                 self.state = State.CONNECTED
                 await self._login()
-                await self.discover_devices()
 
                 if self.state == State.LOGGED_IN:
                     asyncio.create_task(self._monitor())
@@ -97,6 +97,15 @@ class GiraClient:
                 self.state = State.LOGGED_IN
                 self._token = str(messages[0][0])
                 _LOGGER.info("Successfully logged in to Gira HomeServer")
+                await self._write("94||") # Request device values
+            elif action == 2:
+                _LOGGER.debug(f"Got {len(messages)} connection ids and values")
+                init_val = {}
+                for message in messages:
+                    if len(message) == 3:
+                        connection_id, value = message[0], message[1]
+                        init_val[connection_id] = value
+                await self.discover_devices(init_val=init_val)
                 break
             else:
                 _LOGGER.warning(f"Unhandled action during login: {action}")
@@ -106,15 +115,27 @@ class GiraClient:
         while not self._shutdown:
             try:
                 action, messages = await self._read()
+                _LOGGER.debug(f"Monitor received action {action} with {len(messages)} messages")
 
                 if action != 1:
+                    _LOGGER.debug(f"Monitor received non-update action {messages}")
                     continue
-                for m in messages:
-                    device_id = m[0]
-                    device_value = m[1]
-                    if device_id in self.devices:
-                        self.devices[device_id]["value"] = device_value
-                        _LOGGER.debug("Device %s updated: %s", device_id, device_value)
+
+                for connection_id, value, _ in messages:
+                    # Find device and field that uses this connection ID
+                    for device_id, device in self.devices.items():
+                        for key, device_connection_id in device.items():
+                            if key.endswith("_id") and device_connection_id == connection_id:
+                                value_key = key.replace("_id", "_val")
+                                device[value_key] = value
+                                _LOGGER.debug(
+                                    "Device %s (%s) connection %s updated: %s",
+                                    device_id,
+                                    value_key,
+                                    connection_id,
+                                    value
+                                )
+                                break
             except Exception:
                 _LOGGER.exception("Error in monitor loop")
                 await asyncio.sleep(1)
@@ -155,7 +176,7 @@ class GiraClient:
         except Exception:
             _LOGGER.exception("Error sending message")
 
-    async def discover_devices(self):
+    async def discover_devices(self, init_val: dict):
         """Discover devices from the Gira HomeServer."""
         if self.state != State.LOGGED_IN or not self._token:
             _LOGGER.error("Not connected")
@@ -166,38 +187,21 @@ class GiraClient:
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as response:
                 xml = await response.text()
-                self._parse_devices(xml)
-                for id in self.devices.keys():
-                    await self.get_device_value(id)
+                parser = DeviceParser()
+                self.devices = parser.parse(xml)
 
-    def _parse_devices(self, xml: str):
-        """Parse device XML and populate devices dict."""
-        root = ET.fromstring(xml).find("devices")
-        if root is None:
-            return
-
-        # Mapping of connection keys to device properties
-        connection_mapping = {
-            "switch": {"type": "light", "value": "0.0"},
-            "dim_val": {"type": "dimmer", "value": "0.0"},
-            "slot_position": {"type": "cover", "value": "0.0"},
-        }
-
-        for device in root.findall("device"):
-            device_name = device.attrib.get("txt", "Unknown Device")
-            connections = {
-                conn.attrib["slot"]: conn.attrib["tag"]
-                for conn in device.findall("connect")
-            }
-
-            for connection, props in connection_mapping.items():
-                if connection in connections:
-                    self.devices[connections[connection]] = {
-                        "name": device_name,
-                        **props,
-                    }
-
-        _LOGGER.debug("Found %s devices", len(self.devices))
+        for device_id, device in self.devices.items():
+            for key, connection_id in device.items():
+                if key.endswith("_id") and connection_id in init_val:
+                    value_key = key.replace("_id", "_val")
+                    device[value_key] = init_val[connection_id]
+                    _LOGGER.debug(
+                        "Device %s (%s) connection %s updated: %s",
+                        device_id,
+                        value_key,
+                        connection_id,
+                        init_val[connection_id]
+                    )
 
     def get_devices(self, type: str) -> dict:
         """Get list of devices by type."""
@@ -206,35 +210,26 @@ class GiraClient:
         else:
             return self.devices
 
-    async def get_device_value(self, device_id: str) -> str:
-        """Get current value for a device."""
-        if device_id not in self.devices:
-            _LOGGER.warning("Device %s not found", device_id)
-            return "0.0"
-
-        try:
-            await self._write(f"2|{device_id}|0")
-            action, messages = await self._read()
-            if action != 1:
-                return "0.0"
-
-            for m in messages:
-                if m[0] == device_id:
-                    self.devices[device_id]["value"] = m[1]  # Update device value too
-                    return m[1]
-        except Exception:
-            _LOGGER.exception("Error getting device value")
-        return "0.0"
-
-    async def update_device_value(self, device_id: str, value: str) -> None:
+    async def update_device_value(self, device_id: str, connection_id: str, value: str) -> None:
         """Update device value."""
         if self.state != State.LOGGED_IN:
             _LOGGER.error("Not connected")
-            return
+            return None
 
+        if device_id not in self.devices:
+            _LOGGER.warning("Device %s not found", device_id)
+            return None
+
+        device = self.devices[device_id]
         try:
-            await self._write(f"1|{device_id}|{value}")
-            self.devices[device_id]["value"] = value
+            await self._write(f"1|{connection_id}|{value}")
+
+            # Update only the matching slot's value
+            for key, device_connection_id in device.items():
+                if key.endswith("_id") and device_connection_id == connection_id:
+                    value_key = key.replace("_id", "_val")
+                    device[value_key] = value
+                    break
         except Exception:
             _LOGGER.exception("Error updating device value")
 

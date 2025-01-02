@@ -39,8 +39,11 @@ class GiraCover(CoverEntity):
     def __init__(self, client: GiraClient, device_id: str, device: dict):
         """Initialize the cover."""
         self._client = client
-        self._device_id = device_id
         self._device = device
+        self._device_id = device_id
+        self._long_id = device["slot_long_id"]
+        self._short_id = device["slot_short_id"]
+        self._position_id = device["slot_position_id"]
         self._attr_name = device["name"]
         self._attr_unique_id = f"{DOMAIN}_cover_{device_id}"
         self._attr_device_class = CoverDeviceClass.BLIND
@@ -55,8 +58,8 @@ class GiraCover(CoverEntity):
     def current_cover_position(self) -> int|None:
         """Return current position of cover."""
         value = 0
-        if self._device["value"] is not None:
-            value = int(float(self._device["value"]))
+        if self._device["slot_position_val"] is not None:
+            value = int(float(self._device["slot_position_val"]))
         return 100 - value
 
     @property
@@ -65,19 +68,18 @@ class GiraCover(CoverEntity):
         return self.current_cover_position == 0
 
     async def async_open_cover(self, **kwargs: Any) -> None:
-        """Open the cover."""
-        await self._client.update_device_value(self._device_id, "0")
+        """Open the cover simluating a long press."""
+        await self._client.update_device_value(self._device_id, self._long_id, "0")
 
     async def async_close_cover(self, **kwargs: Any) -> None:
-        """Close the cover."""
-        await self._client.update_device_value(self._device_id, "100")
+        """Close the cover simluating a long press."""
+        await self._client.update_device_value(self._device_id, self._long_id, "1")
 
     async def async_stop_cover(self, **kwargs: Any) -> None:
-        """Stop the cover."""
-        position = int(float(self._device["value"]))
-        await self._client.update_device_value(self._device_id, f"{position}")
+        """Stop the cover using the short press."""
+        await self._client.update_device_value(self._device_id, self._short_id, "0")
 
     async def async_set_cover_position(self, **kwargs: Any) -> None:
         """Move the cover to a specific position."""
         position = 100 - kwargs.get(ATTR_POSITION, 0)
-        await self._client.update_device_value(self._device_id, f"{position}")
+        await self._client.update_device_value(self._device_id, self._position_id, f"{position}")

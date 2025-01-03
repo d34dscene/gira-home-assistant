@@ -63,8 +63,7 @@ class GiraClient:
 
         # Start monitor after successful login
         if self.state == State.LOGGED_IN:
-            # asyncio.create_task(self._monitor())
-            await self._monitor()
+            asyncio.create_task(self._monitor())
             return
         else:
             _LOGGER.error("Login failed")

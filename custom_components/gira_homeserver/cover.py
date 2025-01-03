@@ -38,7 +38,6 @@ class GiraCover(CoverEntity):
 
     def __init__(self, client: GiraClient, device_id: str, device: dict):
         """Initialize the cover."""
-        self.should_poll = False
         self._client = client
         self._device = device
         self._device_id = device_id
@@ -89,7 +88,3 @@ class GiraCover(CoverEntity):
         """Move the cover to a specific position."""
         position = 100 - kwargs.get(ATTR_POSITION, 0)
         await self._client.update_device_value(self._device_id, self._position_id, f"{position}")
-
-    async def async_update(self) -> None:
-        """Update the state."""
-        await self._client.fetch_device_values()

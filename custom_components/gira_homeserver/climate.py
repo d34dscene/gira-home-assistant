@@ -38,7 +38,6 @@ class GiraClimate(ClimateEntity):
 
     def __init__(self, client: GiraClient, device_id: str, device: dict):
         """Initialize the light."""
-        self.should_poll = False
         self._client = client
         self._device = device
         self._device_id = device_id
@@ -71,7 +70,3 @@ class GiraClimate(ClimateEntity):
         """Turn the switch on."""
         temperature = kwargs.get(ATTR_TEMPERATURE)
         await self._client.update_device_value(self._device_id, self._target_id, str(temperature))
-
-    async def async_update(self) -> None:
-        """Update the state."""
-        await self._client.fetch_device_values()

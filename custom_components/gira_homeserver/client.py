@@ -43,12 +43,6 @@ class GiraClient:
                 self.state = State.CONNECTED
                 await self._login()
                 await self.discover_devices()
-
-                if self.state == State.LOGGED_IN:
-                    asyncio.create_task(self._monitor())
-                    return
-                else:
-                    _LOGGER.error("Login failed")
                 break
             except asyncio.TimeoutError as err:
                 _LOGGER.error("Timeout connecting to Gira HomeServer: %s", err)
@@ -67,6 +61,15 @@ class GiraClient:
             else:
                 break
 
+        # Start monitor after successful login
+        if self.state == State.LOGGED_IN:
+            # asyncio.create_task(self._monitor())
+            await self._monitor()
+            return
+        else:
+            _LOGGER.error("Login failed")
+
+
     async def disconnect(self) -> None:
         """Disconnect from the Gira HomeServer."""
         self._shutdown = True
@@ -81,7 +84,7 @@ class GiraClient:
 
     async def _login(self):
         await self._write("GET /QUAD/LOGIN \r\n\r\n")
-        while True:
+        while not self._shutdown:
             action, messages = await self._read()
 
             if action == 100:
@@ -103,31 +106,30 @@ class GiraClient:
 
     async def _monitor(self) -> None:
         """Monitor for updates from the server."""
+        await asyncio.sleep(1)
         while not self._shutdown:
             try:
                 action, messages = await self._read()
-                _LOGGER.debug(f"Monitor received action {action} with {len(messages)} messages")
-
-                if action != 1:
+                if action != 1 or not messages:
                     continue
 
                 for message in messages:
-                    if len(message) == 3:
-                        connection_id, value = message[0], message[1]
-                        # Find device and field that uses this connection ID
-                        for device_id, device in self.devices.items():
-                            for key, device_connection_id in device.items():
-                                if key.endswith("_id") and device_connection_id == connection_id:
-                                    value_key = key.replace("_id", "_val")
-                                    device[value_key] = value
-                                    _LOGGER.debug(
-                                        "Device %s (%s) connection %s updated: %s",
-                                        device_id,
-                                        value_key,
-                                        connection_id,
-                                        value
-                                    )
-                                    break
+                    if len(message) != 3:
+                        continue
+
+                    connection_id, value = message[0], message[1]
+                    for device_id, device in self.devices.items():
+                        for key, device_connection_id in device.items():
+                            if key.endswith("_id") and device_connection_id == connection_id:
+                                value_key = key.replace("_id", "_val")
+                                device[value_key] = value
+                                _LOGGER.debug(
+                                    "Device %s (%s) connection %s updated: %s",
+                                    device_id,
+                                    value_key,
+                                    connection_id,
+                                    value
+                                )
             except Exception:
                 _LOGGER.exception("Error in monitor loop")
                 await asyncio.sleep(1)
@@ -137,21 +139,25 @@ class GiraClient:
         if not self._reader:
             raise ConnectionError("Reader is not initialized")
 
+        valid_actions = [1, 2, 91, 93, 100]
         async with self._lock:
             data = await self._reader.read(2048)
             if not data:
                 raise ConnectionError("No data received")
 
             raw_messages = data.decode().strip("\x00").split("|")
-            if not raw_messages or len(raw_messages) < 2:
+            if not raw_messages or len(raw_messages) < 3:
                 raise ConnectionError("Malformed response data")
 
             try:
                 action = int(raw_messages[0])
+                if action not in valid_actions:
+                    return 0, []
             except ValueError:
                 _LOGGER.warning("Invalid action received: %s", raw_messages[0])
                 return 0, []  # Return safe default values
 
+            _LOGGER.debug("Read %s bytes, data: %s", len(data), data)
             messages = [
                 raw_messages[i:i+3] for i in range(1, len(raw_messages), 3)
             ]
@@ -195,52 +201,51 @@ class GiraClient:
         else:
             return self.devices
 
-    async def fetch_device_values(self):
+    async def fetch_device_values(self) -> bool:
         if self.state != State.LOGGED_IN:
             _LOGGER.error("Not connected")
-            return None
+            return False
 
-        await self._write("94||") # Request device values
-        while not self._shutdown:
-            try:
-                action, messages = await self._read()
-                if action != 2:
+        try:
+            await self._write("94||") # Request device values
+            action, messages = await self._read()
+            if action != 2 or not messages:
+                return False
+
+            for message in messages:
+                if len(message) != 3:
                     continue
 
-                _LOGGER.debug(f"Got {len(messages)} connection ids and values")
-                for message in messages:
-                    if len(message) == 3:
-                        connection_id, value = message[0], message[1]
-                        # Find device and field that uses this connection ID
-                        for device_id, device in self.devices.items():
-                            for key, device_connection_id in device.items():
-                                if key.endswith("_id") and device_connection_id == connection_id:
-                                    value_key = key.replace("_id", "_val")
-                                    device[value_key] = value
-                                    _LOGGER.debug(
-                                        "Device %s (%s) connection %s updated: %s",
-                                        device_id,
-                                        value_key,
-                                        connection_id,
-                                        value
-                                    )
-                break
-            except Exception:
-                _LOGGER.exception("Error fetching device values")
-                await asyncio.sleep(1)
+                connection_id, value = message[0], message[1]
+                for device_id, device in self.devices.items():
+                    for key, device_connection_id in device.items():
+                        if key.endswith("_id") and device_connection_id == connection_id:
+                            value_key = key.replace("_id", "_val")
+                            device[value_key] = value
+                            _LOGGER.debug(
+                                "Device %s (%s) connection %s updated: %s",
+                                device_id,
+                                value_key,
+                                connection_id,
+                                value
+                            )
+            return True
+        except Exception:
+            _LOGGER.exception("Error fetching device values")
+            return False
 
-    async def update_device_value(self, device_id: str, connection_id: str, value: str) -> None:
+    async def update_device_value(self, device_id: str, connection_id: str, value: str) -> bool:
         """Update device value."""
         if self.state != State.LOGGED_IN:
             _LOGGER.error("Not connected")
-            return None
+            return False
 
         if device_id not in self.devices:
             _LOGGER.warning("Device %s not found", device_id)
-            return None
+            return False
 
-        device = self.devices[device_id]
         try:
+            device = self.devices[device_id]
             await self._write(f"1|{connection_id}|{value}")
 
             # Update only the matching slot's value
@@ -249,8 +254,10 @@ class GiraClient:
                     value_key = key.replace("_id", "_val")
                     device[value_key] = value
                     break
+            return True
         except Exception:
             _LOGGER.exception("Error updating device value")
+            return False
 
     def _generate_hash(self, username, password, salt):
         salt = [ord(c) for c in salt]

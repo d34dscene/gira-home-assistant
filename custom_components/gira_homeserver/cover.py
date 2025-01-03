@@ -38,6 +38,7 @@ class GiraCover(CoverEntity):
 
     def __init__(self, client: GiraClient, device_id: str, device: dict):
         """Initialize the cover."""
+        self.should_poll = False
         self._client = client
         self._device = device
         self._device_id = device_id

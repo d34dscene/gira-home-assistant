@@ -43,9 +43,21 @@ class DeviceParser:
         if root is None:
             return self.devices
 
+        # Keep track of device names we've seen
+        seen_names = set()
+
         for device in root.findall("device"):
             device_id = device.attrib.get("id", "0")
             device_name = device.attrib.get("txt", "Unknown Device")
+
+            # Skip devices we've already seen
+            if device_name in seen_names:
+                continue
+            seen_names.add(device_name)
+
+            # Skip devices without any connections
+            if len(device.findall("connect")) == 0:
+                continue
 
             connections = {
                 conn.attrib["slot"]: conn.attrib["tag"]

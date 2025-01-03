@@ -76,7 +76,7 @@ class GiraCover(CoverEntity):
     async def async_close_cover(self, **kwargs: Any) -> None:
         """Close the cover simluating a long press."""
         await self._client.update_device_value(self._device_id, self._long_id, "1")
-        await self._client.update_device_value(self._device_id, self._position_id, "0")
+        await self._client.update_device_value(self._device_id, self._position_id, "100")
         self._device["slot_position_val"] = "100"
 
     async def async_stop_cover(self, **kwargs: Any) -> None:

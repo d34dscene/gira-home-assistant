@@ -1,41 +1,62 @@
+from enum import Enum
+from dataclasses import dataclass
+
+from typing import Dict, List
 import xml.etree.ElementTree as ET
 import logging
 
 _LOGGER = logging.getLogger(__name__)
 
-class DeviceType:
-    def __init__(self, name: str, slots: list):
-        self.name = name
-        self.slots = slots
+class DeviceTypeEnum(Enum):
+    LIGHT = "light"
+    DIMMER = "dimmer"
+    SWITCH = "switch"
+    COVER = "cover"
+    CLIMATE = "climate"
 
-class DeviceParser:
-    def __init__(self, device_types=None):
-        self.device_types = device_types or DEVICE_TYPES
+# INFO: These have to be adjusted depending on the installation
+class SlotTypeEnum(Enum):
+    LIGHT_SWITCH = "switch"
+    DIMMER_SWITCH = "dim_s"
+    DIMMER_BRIGHTNESS = "dim_val"
+    GENERAL_SWITCH = "slot_switch"
+    COVER_SHORT = "slot_short"
+    COVER_LONG = "slot_long"
+    COVER_POSITION = "slot_position"
+    CLIMATE_TARGET = "slot_targetvalue"
+    CLIMATE_CURRENT = "slot_temp_actual"
+
+@dataclass
+class DeviceConfig:
+    name: str
+    type: DeviceTypeEnum
+    slots: List[SlotTypeEnum]
+
+class Parser:
+    def __init__(self, config=None):
         self.devices = {}
+        self.config = config or DEFAULT_CONFIG
 
-    @staticmethod
-    def _matches_device_type(connections: dict, device_type: DeviceType) -> bool:
+    def _matches_device_type(self, connections: dict, device_config: DeviceConfig) -> bool:
         """Check if connections match the slots for a device type."""
         connection_slots = set(connections.keys())
-        slots = set(device_type.slots)
-        return bool(slots & connection_slots)
+        config_slots = {slot.value for slot in device_config.slots}
+        return bool(config_slots & connection_slots)
 
-    @staticmethod
-    def _create_device_dict(device_name: str, device_type: DeviceType, connections: dict) -> dict:
-        """Create a device dictionary with all available slots."""
+    def _add_device(self, device_id: str, device_name: str, device_config: DeviceConfig, connections: dict) -> None:
+        """Create and add a device dictionary with available slots."""
         device_dict = {
             "name": device_name,
-            "type": device_type.name,
+            "type": device_config.type.value,
         }
 
-        # Add all available slots (both required and optional)
-        for slot in device_type.slots:
-            if slot in connections:
-                # Add both ID and value fields
-                device_dict[f"{slot}_id"] = connections[slot]
-                device_dict[f"{slot}_val"] = "0.0"
+        # Add all matching slots
+        for slot in device_config.slots:
+            if slot.value in connections:
+                device_dict[f"{slot.value}_id"] = connections[slot.value]
+                device_dict[f"{slot.value}_val"] = "0.0"
 
-        return device_dict
+        self.devices[device_id] = device_dict
 
     def parse(self, xml: str) -> dict:
         """Parse device XML and return devices dict."""
@@ -59,19 +80,19 @@ class DeviceParser:
             if len(device.findall("connect")) == 0:
                 continue
 
+            # Parse connections
             connections = {
                 conn.attrib["slot"]: conn.attrib["tag"]
                 for conn in device.findall("connect")
+                if "slot" in conn.attrib and "tag" in conn.attrib
             }
 
-            for device_type in self.device_types.values():
-                if self._matches_device_type(connections, device_type):
-                    self.devices[device_id] = self._create_device_dict(
-                        device_name, device_type, connections
-                    )
+            for device_config in self.config.values():
+                if self._matches_device_type(connections, device_config):
+                    self._add_device(device_id, device_name, device_config, connections)
                     _LOGGER.debug(
                         "Found %s %s, connections: %s",
-                        device_type.name,
+                        device_config.type.value,
                         device_id,
                         connections
                     )
@@ -86,27 +107,31 @@ class DeviceParser:
         _LOGGER.debug("Found %s devices", len(self.devices))
         return self.devices
 
-
-# Default device types (maybe make adjustable in the future)
-DEVICE_TYPES = {
-    "light": DeviceType(
-        name="light",
-        slots=["switch", "switch_rm"],
+# Default device configurations
+DEFAULT_CONFIG: Dict[DeviceTypeEnum, DeviceConfig] = {
+    DeviceTypeEnum.LIGHT: DeviceConfig(
+        name="",
+        type=DeviceTypeEnum.LIGHT,
+        slots=[SlotTypeEnum.LIGHT_SWITCH],
     ),
-    "dimmer": DeviceType(
-        name="dimmer",
-        slots=["dim_s", "dim_val"],
+    DeviceTypeEnum.DIMMER: DeviceConfig(
+        name="",
+        type=DeviceTypeEnum.DIMMER,
+        slots=[SlotTypeEnum.DIMMER_SWITCH, SlotTypeEnum.DIMMER_BRIGHTNESS],
     ),
-    "cover": DeviceType(
-        name="cover",
-        slots=["slot_short", "slot_long", "slot_position"],
+    DeviceTypeEnum.SWITCH: DeviceConfig(
+        name="",
+        type=DeviceTypeEnum.SWITCH,
+        slots=[SlotTypeEnum.GENERAL_SWITCH],
     ),
-    "climate": DeviceType(
-        name="climate",
-        slots=["slot_targetvalue", "slot_temp_target", "slot_temp_actual"],
+    DeviceTypeEnum.COVER: DeviceConfig(
+        name="",
+        type=DeviceTypeEnum.COVER,
+        slots=[SlotTypeEnum.COVER_SHORT, SlotTypeEnum.COVER_LONG, SlotTypeEnum.COVER_POSITION],
     ),
-    "switch": DeviceType(
-        name="switch",
-        slots=["slot_switch"],
+    DeviceTypeEnum.CLIMATE: DeviceConfig(
+        name="",
+        type=DeviceTypeEnum.CLIMATE,
+        slots=[SlotTypeEnum.CLIMATE_TARGET, SlotTypeEnum.CLIMATE_CURRENT],
     ),
 }

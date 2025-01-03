@@ -7,7 +7,7 @@ from enum import Enum
 import aiohttp
 from homeassistant.exceptions import ConfigEntryNotReady
 
-from custom_components.gira_homeserver.devices import DeviceParser
+from custom_components.gira_homeserver.devices import Parser, SlotTypeEnum, DeviceTypeEnum
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,6 +32,48 @@ class GiraClient:
         self._writer: Optional[asyncio.StreamWriter] = None
         self._lock = asyncio.Lock()
         self._shutdown = False
+
+    def get_device_name(self, device_id: str) -> Optional[str]:
+        if device_id not in self.devices:
+            return None
+        return self.devices[device_id].get("name")
+
+    def get_device_type(self, device_id: str) -> Optional[str]:
+        """Get device type."""
+        if device_id not in self.devices:
+            return None
+        return self.devices[device_id].get("type")
+
+    def get_slot_id(self, device_id: str, slot: SlotTypeEnum) -> Optional[str]:
+        """Get slot id."""
+        if device_id not in self.devices:
+            return None
+        return self.devices[device_id].get(f"{slot.value}_id")
+
+    def get_slot_val(self, device_id: str, slot: SlotTypeEnum) -> Optional[str]:
+        """Get slot value."""
+        if device_id not in self.devices:
+            return None
+        return self.devices[device_id].get(f"{slot.value}_val")
+
+    def get_device(self, device_id: str) -> Optional[dict]:
+        if device_id not in self.devices:
+            return None
+        return self.devices[device_id]
+
+    def get_devices(self, type: DeviceTypeEnum) -> Optional[dict]:
+        """Get list of devices by type."""
+        if type:
+            return {id: device for id, device in self.devices.items() if device["type"] == type.value}
+        else:
+            return None
+
+    # INFO: This is a stupid hack to get around the fact that the client doesn't update the device values
+    def set_slot_val(self, device_id: str, slot: SlotTypeEnum, value: str) -> None:
+        """Set slot value."""
+        if device_id not in self.devices:
+            return
+        self.devices[device_id][f"{slot.value}_val"] = value
 
     async def connect(self, *, retry: bool = True) -> None:
         """Connect to the Gira HomeServer."""
@@ -105,7 +147,6 @@ class GiraClient:
 
     async def _monitor(self) -> None:
         """Monitor for updates from the server."""
-        await asyncio.sleep(1)
         while not self._shutdown:
             try:
                 action, messages = await self._read()
@@ -189,16 +230,8 @@ class GiraClient:
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as response:
                 xml = await response.text()
-                parser = DeviceParser()
-                self.devices = parser.parse(xml)
+                self.devices = Parser().parse(xml)
                 await self.fetch_device_values()
-
-    def get_devices(self, type: str) -> dict:
-        """Get list of devices by type."""
-        if type:
-            return {id: device for id, device in self.devices.items() if device["type"] == type}
-        else:
-            return self.devices
 
     async def fetch_device_values(self) -> bool:
         if self.state != State.LOGGED_IN:

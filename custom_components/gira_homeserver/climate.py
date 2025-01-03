@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Optional
 
 
 from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature
@@ -16,6 +16,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .client import GiraClient
 from .const import DOMAIN
+from .devices import DeviceTypeEnum, SlotTypeEnum
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,35 +29,43 @@ async def async_setup_entry(
     client = hass.data[DOMAIN][config_entry.entry_id]
 
     entities = []
-    for device_id, device in client.get_devices("climate").items():
-        entities.append(GiraClimate(client, device_id, device))
+    for device_id in client.get_devices(DeviceTypeEnum.CLIMATE).keys():
+        entities.append(GiraClimate(client, device_id))
 
     async_add_entities(entities)
 
 class GiraClimate(ClimateEntity):
     """Representation of a Gira HomeServer light."""
 
-    def __init__(self, client: GiraClient, device_id: str, device: dict):
+    def __init__(self, client: GiraClient, device_id: str):
         """Initialize the light."""
         self._client = client
-        self._device = device
         self._device_id = device_id
-        self._target_id = device["slot_targetvalue_id"]
-        self._current_id = device["slot_temp_actual_id"]
-        self._attr_name = device["name"]
+        self._target_id = client.get_slot_id(device_id, SlotTypeEnum.CLIMATE_TARGET)
+        self._current_id = client.get_slot_id(device_id, SlotTypeEnum.CLIMATE_CURRENT)
+        self._attr_name = client.get_device_name(device_id)
         self._attr_unique_id = f"{DOMAIN}_climate_{device_id}"
         self._attr_temperature_unit = UnitOfTemperature.CELSIUS
         self._attr_supported_features = (ClimateEntityFeature.TARGET_TEMPERATURE)
 
     @property
-    def current_temperature(self) -> float:
+    def current_temperature(self) -> Optional[float]:
         """Return the current temperature."""
-        return float(self._device["slot_temp_actual_val"])
+        value = self._client.get_slot_val(self._device_id, SlotTypeEnum.CLIMATE_CURRENT)
+        if value is None:
+            return None
+        return float(value)
 
     @property
-    def target_temperature(self) -> float:
+    def target_temperature(self) -> Optional[float]:
         """Return the temperature we try to reach."""
-        return float(self._device["slot_targetvalue_val"])
+        if self._target_id is None:
+            return None
+
+        value = self._client.get_slot_val(self._device_id, SlotTypeEnum.CLIMATE_TARGET)
+        if value is None:
+            return None
+        return float(value)
 
     @property
     def hvac_mode(self):
@@ -68,5 +77,7 @@ class GiraClimate(ClimateEntity):
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
         """Turn the switch on."""
+        if self._target_id is None:
+            return
         temperature = kwargs.get(ATTR_TEMPERATURE)
         await self._client.update_device_value(self._device_id, self._target_id, str(temperature))

@@ -73,7 +73,6 @@ class GiraDimmer(GiraLight):
 
     def __init__(self, client: GiraClient, device_id: str):
         """Initialize the dimmer."""
-        self.should_poll = False
         self._client = client
         self._device_id = device_id
         self._switch_id = client.get_slot_id(device_id, SlotTypeEnum.DIMMER_SWITCH)

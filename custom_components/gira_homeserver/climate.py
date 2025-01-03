@@ -6,7 +6,7 @@ from typing import Any
 
 
 from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature
-from homeassistant.components.climate.const import HVACMode
+from homeassistant.components.climate.const import HVACMode, ClimateEntityFeature
 from homeassistant.components.climate import (
     ClimateEntity,
 )
@@ -46,9 +46,8 @@ class GiraClimate(ClimateEntity):
         self._attr_name = device["name"]
         self._attr_unique_id = f"{DOMAIN}_climate_{device_id}"
         self._attr_current_temperature = float(device["slot_temp_actual_val"])
-        self._attr_target_temperature_low = 0
-        self._attr_target_temperature_high = 30
         self._attr_temperature_unit = UnitOfTemperature.CELSIUS
+        self._attr_supported_features = (ClimateEntityFeature.TARGET_TEMPERATURE)
 
     @property
     def hvac_mode(self):

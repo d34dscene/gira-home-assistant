@@ -45,9 +45,18 @@ class GiraClimate(ClimateEntity):
         self._current_id = device["slot_temp_actual_id"]
         self._attr_name = device["name"]
         self._attr_unique_id = f"{DOMAIN}_climate_{device_id}"
-        self._attr_current_temperature = float(device["slot_temp_actual_val"])
         self._attr_temperature_unit = UnitOfTemperature.CELSIUS
         self._attr_supported_features = (ClimateEntityFeature.TARGET_TEMPERATURE)
+
+    @property
+    def current_temperature(self) -> float:
+        """Return the current temperature."""
+        return float(self._device["slot_temp_actual_val"])
+
+    @property
+    def target_temperature(self) -> float:
+        """Return the temperature we try to reach."""
+        return float(self._device["slot_targetvalue_val"])
 
     @property
     def hvac_mode(self):
@@ -61,3 +70,7 @@ class GiraClimate(ClimateEntity):
         """Turn the switch on."""
         temperature = kwargs.get(ATTR_TEMPERATURE)
         await self._client.update_device_value(self._device_id, self._target_id, str(temperature))
+
+    async def async_update(self) -> None:
+        """Update the state."""
+        await self._client.fetch_device_values()

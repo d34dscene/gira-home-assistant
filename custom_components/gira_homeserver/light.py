@@ -76,8 +76,8 @@ class GiraDimmer(GiraLight):
         self.should_poll = False
         self._client = client
         self._device_id = device_id
-        self._dimmer_switch_id = client.get_slot_id(device_id, SlotTypeEnum.DIMMER_SWITCH)
-        self._dimmer_brightness_id = client.get_slot_id(device_id, SlotTypeEnum.DIMMER_BRIGHTNESS)
+        self._switch_id = client.get_slot_id(device_id, SlotTypeEnum.DIMMER_SWITCH)
+        self._brightness_id = client.get_slot_id(device_id, SlotTypeEnum.DIMMER_BRIGHTNESS)
         self._attr_name = client.get_device_name(device_id)
         self._attr_unique_id = f"{DOMAIN}_dimmer_{device_id}"
         self._attr_color_mode = ColorMode.BRIGHTNESS
@@ -87,9 +87,10 @@ class GiraDimmer(GiraLight):
     def is_on(self) -> Optional[bool]:
         """Return true if light is on."""
         value = self._client.get_slot_val(self._device_id, SlotTypeEnum.DIMMER_BRIGHTNESS)
-        if value is None:
+        switch = self._client.get_slot_val(self._device_id, SlotTypeEnum.DIMMER_SWITCH)
+        if value is None or switch is None:
             return None
-        return int(float(value)) > 0
+        return int(float(value)) > 0 or switch == "1"
 
     @property
     def brightness(self) -> Optional[int]:
@@ -101,19 +102,19 @@ class GiraDimmer(GiraLight):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the light on."""
-        if self._dimmer_brightness_id is None or self._dimmer_switch_id is None:
+        if self._brightness_id is None or self._switch_id is None:
             return
 
         if kwargs.get(ATTR_BRIGHTNESS) is None:
-            await self._client.update_device_value(self._device_id, self._dimmer_switch_id, "1")
+            await self._client.update_device_value(self._device_id, self._switch_id, "1")
             return
 
-        brightness = round(kwargs.get(ATTR_BRIGHTNESS, 255) / 2.55, 1)
-        await self._client.update_device_value(self._device_id, self._dimmer_brightness_id, f"{brightness}")
+        brightness = round(kwargs[ATTR_BRIGHTNESS] / 2.55, 1)
+        await self._client.update_device_value(self._device_id, self._brightness_id, f"{brightness}")
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the light off."""
-        if self._dimmer_brightness_id is None or self._dimmer_switch_id is None:
+        if self._switch_id is None:
             return
-        await self._client.update_device_value(self._device_id, self._dimmer_brightness_id, "0")
-        await self._client.update_device_value(self._device_id, self._dimmer_switch_id, "0")
+        await self._client.update_device_value(self._device_id, self._switch_id, "0")
+        self._client.set_slot_val(self._device_id, SlotTypeEnum.DIMMER_BRIGHTNESS, "0")

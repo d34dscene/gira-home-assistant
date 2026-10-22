@@ -16,11 +16,12 @@ from .project import Kind, Project
 
 _LOGGER = logging.getLogger(__name__)
 
-# INFO: Level and aliases for the floor names used in the project.
-FLOORS: dict[str, tuple[int, set[str]]] = {
-    "UG": (-1, {"Keller"}),
-    "EG": (0, {"Erdgeschoss"}),
-    "OG": (1, {"Obergeschoss"}),
+# INFO: Project floor name, then the name used when creating it, its level and the
+# names that count as the same floor when one already exists.
+FLOORS: dict[str, tuple[str, int, tuple[str, ...]]] = {
+    "UG": ("Keller", -1, ("UG", "Untergeschoss")),
+    "EG": ("Erdgeschoss", 0, ("EG",)),
+    "OG": ("Obergeschoss", 1, ("OG",)),
 }
 
 _OLD_KINDS = {
@@ -31,16 +32,27 @@ _OLD_KINDS = {
 }
 
 
+def _floor(floors: fr.FloorRegistry, project_name: str) -> fr.FloorEntry:
+    name, level, same_as = FLOORS.get(project_name, (project_name, None, ()))
+    for candidate in (name, project_name, *same_as):
+        if found := floors.async_get_floor_by_name(candidate):
+            return found
+        if found := next(iter(floors.async_get_floors_by_alias(candidate)), None):
+            return found
+    return floors.async_create(name, level=level, aliases={project_name} - {name})
+
+
 def sync_areas(hass: HomeAssistant, project: Project) -> None:
-    """Create missing floors and areas. Existing user choices are left alone."""
+    """Create missing floors and areas. Only meant for the first setup of an entry.
+
+    Existing floors and areas are reused and never changed, apart from giving a
+    floorless area of the same name a floor.
+    """
     floors = fr.async_get(hass)
     areas = ar.async_get(hass)
     places = {(d.floor, d.room) for d in project.devices if d.floor and d.room}
     for floor_name, room in sorted(places):
-        floor = floors.async_get_floor_by_name(floor_name)
-        if floor is None:
-            level, aliases = FLOORS.get(floor_name, (None, set()))
-            floor = floors.async_create(floor_name, level=level, aliases=aliases)
+        floor = _floor(floors, floor_name)
         area = areas.async_get_area_by_name(room)
         if area is None:
             areas.async_create(room, floor_id=floor.floor_id)

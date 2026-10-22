@@ -44,7 +44,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: GiraConfigEntry) -> bool
         await client.disconnect()
         raise ConfigEntryError("The HomeServer project could not be read") from err
 
-    hub = dr.async_get(hass).async_get_or_create(
+    devices = dr.async_get(hass)
+    first_setup = not dr.async_entries_for_config_entry(devices, entry.entry_id)
+    hub = devices.async_get_or_create(
         config_entry_id=entry.entry_id,
         identifiers={(DOMAIN, entry.entry_id)},
         name=entry.title,
@@ -55,7 +57,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: GiraConfigEntry) -> bool
     visible = replace(project, devices=tuple(d for d in project.devices if d.key not in hidden))
     entry.runtime_data = GiraData(client, visible, hub.id, project.devices)
     remove_hidden(hass, entry, hidden)
-    sync_areas(hass, visible)
+    if first_setup:
+        sync_areas(hass, visible)
     await migrate_unique_ids(hass, entry)
 
     async def listen() -> None:

@@ -60,8 +60,8 @@ async def test_floors_areas_and_devices_are_placed(
     await setup(hass, entry)
     floors = fr.async_get(hass)
     areas = ar.async_get(hass)
-    eg = floors.async_get_floor_by_name("EG")
-    assert eg and eg.level == 0 and "Erdgeschoss" in eg.aliases
+    eg = floors.async_get_floor_by_name("Erdgeschoss")
+    assert eg and eg.level == 0 and "EG" in eg.aliases
     wohnen = areas.async_get_area_by_name("Wohnen")
     assert wohnen and wohnen.floor_id == eg.floor_id
     outdoors = areas.async_get_area_by_name("Außen")
@@ -70,6 +70,33 @@ async def test_floors_areas_and_devices_are_placed(
     devices = dr.async_get(hass)
     lamp = devices.async_get_device_by_identifier((DOMAIN, "light_10"), entry.entry_id)
     assert lamp and lamp.area_id == wohnen.id and lamp.via_device_id
+
+
+async def test_existing_floors_are_reused(hass: HomeAssistant, entry: MockConfigEntry) -> None:
+    floors = fr.async_get(hass)
+    mine = floors.async_create("Erdgeschoss", level=0)
+    await setup(hass, entry)
+    assert [f.name for f in floors.async_list_floors()].count("Erdgeschoss") == 1
+    assert not floors.async_get_floor_by_name("EG")
+    area = ar.async_get(hass).async_get_area_by_name("Wohnen")
+    assert area and area.floor_id == mine.floor_id
+
+
+async def test_deleted_areas_are_not_recreated_on_reload(
+    hass: HomeAssistant, entry: MockConfigEntry
+) -> None:
+    await setup(hass, entry)
+    areas = ar.async_get(hass)
+    devices = dr.async_get(hass)
+    for device in dr.async_entries_for_config_entry(devices, entry.entry_id):
+        devices.async_update_device(device.id, area_id=None)
+    area = areas.async_get_area_by_name("Wohnen")
+    assert area
+    areas.async_delete(area.id)
+
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert areas.async_get_area_by_name("Wohnen") is None
 
 
 async def test_entity_ids_include_the_room(hass: HomeAssistant, entry: MockConfigEntry) -> None:

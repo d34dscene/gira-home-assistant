@@ -173,3 +173,7 @@ pyrightconfig.json
 # Extra
 .DS_Store
 *.xml
+
+# local secrets and captures from the real HomeServer
+.envrc
+captures/

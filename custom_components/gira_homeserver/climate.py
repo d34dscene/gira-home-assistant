@@ -1,83 +1,57 @@
-"""Support for Gira HomeServer climate."""
+"""Gira room thermostats."""
+
 from __future__ import annotations
 
-import logging
-from typing import Any, Optional
+from typing import Any
 
-
-from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature
-from homeassistant.components.climate.const import HVACMode, ClimateEntityFeature
 from homeassistant.components.climate import (
     ClimateEntity,
+    ClimateEntityFeature,
+    HVACMode,
 )
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .client import GiraClient
-from .const import DOMAIN
-from .devices import DeviceTypeEnum, SlotTypeEnum
+from .data import GiraConfigEntry, GiraData
+from .entity import GiraEntity, add_entities, to_float
+from .project import GiraDevice, Kind
 
-_LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(
-    hass: HomeAssistant,
-    config_entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    hass: HomeAssistant, entry: GiraConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Set up the Gira HomeServer light platform."""
-    client = hass.data[DOMAIN][config_entry.entry_id]
+    data = entry.runtime_data
+    add_entities(
+        hass,
+        entry,
+        "climate",
+        async_add_entities,
+        lambda d: GiraClimate(data, d) if d.kind is Kind.CLIMATE else None,
+    )
 
-    entities = []
-    for device_id in client.get_devices(DeviceTypeEnum.CLIMATE).keys():
-        entities.append(GiraClimate(client, device_id))
 
-    async_add_entities(entities)
+class GiraClimate(GiraEntity, ClimateEntity):
+    _attr_temperature_unit = UnitOfTemperature.CELSIUS
+    _attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
+    _attr_hvac_modes = [HVACMode.HEAT]
+    _attr_hvac_mode = HVACMode.HEAT
+    _attr_target_temperature_step = 0.5
 
-class GiraClimate(ClimateEntity):
-    """Representation of a Gira HomeServer light."""
-
-    def __init__(self, client: GiraClient, device_id: str):
-        """Initialize the light."""
-        self._client = client
-        self._device_id = device_id
-        self._target_id = client.get_slot_id(device_id, SlotTypeEnum.CLIMATE_TARGET)
-        self._current_id = client.get_slot_id(device_id, SlotTypeEnum.CLIMATE_CURRENT)
-        self._attr_name = client.get_device_name(device_id)
-        self._attr_unique_id = f"{DOMAIN}_climate_{device_id}"
-        self._attr_temperature_unit = UnitOfTemperature.CELSIUS
-        self._attr_supported_features = (ClimateEntityFeature.TARGET_TEMPERATURE)
-
-    @property
-    def current_temperature(self) -> Optional[float]:
-        """Return the current temperature."""
-        value = self._client.get_slot_val(self._device_id, SlotTypeEnum.CLIMATE_CURRENT)
-        if value is None:
-            return None
-        return float(value)
+    def __init__(self, data: GiraData, device: GiraDevice) -> None:
+        super().__init__(data, device)
+        self._setpoint = device.slots["slot_targetvalue"]
+        self._target = device.slots["slot_temp_target"]
+        self._actual = device.slots["slot_temp_actual"]
 
     @property
-    def target_temperature(self) -> Optional[float]:
-        """Return the temperature we try to reach."""
-        if self._target_id is None:
-            return None
-
-        value = self._client.get_slot_val(self._device_id, SlotTypeEnum.CLIMATE_TARGET)
-        if value is None:
-            return None
-        return float(value)
+    def current_temperature(self) -> float | None:
+        return to_float(self._client.value(self._actual))
 
     @property
-    def hvac_mode(self):
-        return HVACMode.HEAT
-
-    @property
-    def hvac_modes(self):
-        return [HVACMode.HEAT]
+    def target_temperature(self) -> float | None:
+        value = to_float(self._client.value(self._target))
+        return value if value else None
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
-        """Turn the switch on."""
-        if self._target_id is None:
-            return
-        temperature = kwargs.get(ATTR_TEMPERATURE)
-        await self._client.update_device_value(self._device_id, self._target_id, str(temperature))
+        await self._client.set_value(self._setpoint, str(kwargs[ATTR_TEMPERATURE]))

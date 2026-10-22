@@ -1,99 +1,77 @@
-"""Support for Gira HomeServer covers."""
+"""Gira covers (roller shutters).
+
+The HomeServer reports no real position. Moving is done with the long object
+(1 down, 0 up) and stopped with the short object. Absolute positioning is not
+reliable on the actuators seen so far, so only open, close and stop are offered.
+"""
+
 from __future__ import annotations
 
-import logging
-from typing import Any, Optional
+from typing import Any
 
 from homeassistant.components.cover import (
-    ATTR_POSITION,
     CoverDeviceClass,
     CoverEntity,
     CoverEntityFeature,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
-from .client import GiraClient
-from .devices import DeviceTypeEnum, SlotTypeEnum
+from .data import GiraConfigEntry, GiraData
+from .entity import GiraEntity, add_entities, to_float
+from .project import GiraDevice, Kind
 
-_LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(
-    hass: HomeAssistant,
-    config_entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    hass: HomeAssistant, entry: GiraConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Set up the Gira HomeServer cover platform."""
-    client = hass.data[DOMAIN][config_entry.entry_id]
+    data = entry.runtime_data
+    add_entities(
+        hass,
+        entry,
+        "cover",
+        async_add_entities,
+        lambda d: GiraCover(data, d) if d.kind is Kind.COVER else None,
+    )
 
-    entities = []
-    for device_id, device in client.get_devices(DeviceTypeEnum.COVER).items():
-        entities.append(GiraCover(client, device_id))
 
-    async_add_entities(entities)
+class GiraCover(GiraEntity, CoverEntity):
+    _attr_device_class = CoverDeviceClass.SHUTTER
+    _attr_assumed_state = True
+    _attr_supported_features = (
+        CoverEntityFeature.OPEN | CoverEntityFeature.CLOSE | CoverEntityFeature.STOP
+    )
 
-class GiraCover(CoverEntity):
-    """Representation of a Gira HomeServer cover."""
+    def __init__(self, data: GiraData, device: GiraDevice) -> None:
+        super().__init__(data, device)
+        self._short = device.slots["slot_short"]
+        self._long = device.slots["slot_long"]
+        self._stopped = False
 
-    def __init__(self, client: GiraClient, device_id: str):
-        """Initialize the cover."""
-        self._client = client
-        self._device_id = device_id
-        self._short_id = client.get_slot_id(device_id, SlotTypeEnum.COVER_SHORT)
-        self._long_id = client.get_slot_id(device_id, SlotTypeEnum.COVER_LONG)
-        self._position_id = client.get_slot_id(device_id, SlotTypeEnum.COVER_POSITION)
-        self._attr_name = client.get_device_name(device_id)
-        self._attr_unique_id = f"{DOMAIN}_cover_{device_id}"
-        self._attr_device_class = CoverDeviceClass.BLIND
-        self._attr_supported_features = (
-            CoverEntityFeature.OPEN
-            | CoverEntityFeature.CLOSE
-            | CoverEntityFeature.SET_POSITION
-            | CoverEntityFeature.STOP
-        )
+    async def async_added_to_hass(self) -> None:
+        # Registered first so the flag is set before the state is written.
+        self.async_on_remove(self._client.subscribe([self._short], self._on_stop))
+        self.async_on_remove(self._client.subscribe([self._long], self._on_move))
+        await super().async_added_to_hass()
 
-    @property
-    def current_cover_position(self) -> Optional[int]:
-        """Return current position of cover."""
-        value = self._client.get_slot_val(self._device_id, SlotTypeEnum.COVER_POSITION)
-        if value is None:
-            return None
-        return 100 - int(float(value))
+    def _on_stop(self) -> None:
+        self._stopped = True
+
+    def _on_move(self) -> None:
+        self._stopped = False
 
     @property
-    def is_closed(self) -> Optional[bool]:
-        """Return if the cover is closed."""
-        position = self._client.get_slot_val(self._device_id, SlotTypeEnum.COVER_POSITION)
-        if position is None:
+    def is_closed(self) -> bool | None:
+        if self._stopped:
             return None
-        return int(float(position)) == 100
+        value = to_float(self._client.value(self._long))
+        return None if value is None else value > 0
 
     async def async_open_cover(self, **kwargs: Any) -> None:
-        """Open the cover simluating a long press."""
-        if self._long_id is None:
-            return
-        await self._client.update_device_value(self._device_id, self._long_id, "0")
-        self._client.set_slot_val(self._device_id, SlotTypeEnum.COVER_POSITION, "0")
+        await self._client.set_value(self._long, "0")
 
     async def async_close_cover(self, **kwargs: Any) -> None:
-        """Close the cover simluating a long press."""
-        if self._long_id is None:
-            return
-        await self._client.update_device_value(self._device_id, self._long_id, "1")
-        self._client.set_slot_val(self._device_id, SlotTypeEnum.COVER_POSITION, "100")
+        await self._client.set_value(self._long, "1")
 
     async def async_stop_cover(self, **kwargs: Any) -> None:
-        """Stop the cover using the short press."""
-        if self._short_id is None:
-            return
-        await self._client.update_device_value(self._device_id, self._short_id, "0")
-        self._client.set_slot_val(self._device_id, SlotTypeEnum.COVER_POSITION, "50")
-
-    async def async_set_cover_position(self, **kwargs: Any) -> None:
-        """Move the cover to a specific position."""
-        if self._position_id is None:
-            return
-        position = 100 - kwargs.get(ATTR_POSITION, 0)
-        await self._client.update_device_value(self._device_id, self._position_id, f"{position}")
+        await self._client.set_value(self._short, "0")

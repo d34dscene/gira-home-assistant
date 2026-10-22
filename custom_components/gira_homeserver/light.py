@@ -1,119 +1,87 @@
-"""Support for Gira HomeServer lights."""
+"""Gira lights and dimmers."""
+
 from __future__ import annotations
 
-import logging
-from typing import Any, Optional
+from typing import Any
 
-from homeassistant.components.light import (
-    ATTR_BRIGHTNESS,
-    ColorMode,
-    LightEntity,
-)
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.components.light import ATTR_BRIGHTNESS, ColorMode, LightEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util.percentage import (
+    percentage_to_ranged_value,
+    ranged_value_to_percentage,
+)
 
-from .const import DOMAIN
-from .client import GiraClient
-from .devices import DeviceTypeEnum, SlotTypeEnum
+from .data import GiraConfigEntry, GiraData
+from .entity import GiraEntity, add_entities, to_float
+from .project import GiraDevice, Kind
 
-_LOGGER = logging.getLogger(__name__)
+BRIGHTNESS_SCALE = (1, 255)
+
 
 async def async_setup_entry(
-    hass: HomeAssistant,
-    config_entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    hass: HomeAssistant, entry: GiraConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Set up the Gira HomeServer light platform."""
-    client = hass.data[DOMAIN][config_entry.entry_id]
+    data = entry.runtime_data
 
-    entities = []
-    for device_id in client.get_devices(DeviceTypeEnum.LIGHT).keys():
-        entities.append(GiraLight(client, device_id))
-    for device_id in client.get_devices(DeviceTypeEnum.DIMMER).keys():
-        entities.append(GiraDimmer(client, device_id))
+    def build(device: GiraDevice) -> GiraEntity | None:
+        if device.kind is Kind.LIGHT:
+            return GiraLight(data, device)
+        if device.kind is Kind.DIMMER:
+            return GiraDimmer(data, device)
+        return None
 
-    async_add_entities(entities)
+    add_entities(hass, entry, "light", async_add_entities, build)
 
-class GiraLight(LightEntity):
-    """Representation of a Gira HomeServer light."""
 
-    def __init__(self, client: GiraClient, device_id: str):
-        """Initialize the light."""
-        self._client = client
-        self._device_id = device_id
-        self._switch_id = client.get_slot_id(device_id, SlotTypeEnum.LIGHT_SWITCH)
-        self._attr_name = client.devices[device_id]["name"]
-        self._attr_unique_id = f"{DOMAIN}_light_{device_id}"
-        self._attr_color_mode = ColorMode.ONOFF
-        self._attr_supported_color_modes = {ColorMode.ONOFF}
+class GiraLight(GiraEntity, LightEntity):
+    _attr_color_mode = ColorMode.ONOFF
+    _attr_supported_color_modes = {ColorMode.ONOFF}
+
+    def __init__(self, data: GiraData, device: GiraDevice) -> None:
+        super().__init__(data, device)
+        self._command = device.slots["switch"]
+        self._feedback = device.slots.get("switch_rm", self._command)
 
     @property
-    def is_on(self) -> Optional[bool]:
-        """Return true if light is on."""
-        value = self._client.get_slot_val(self._device_id, SlotTypeEnum.LIGHT_SWITCH)
-        if value is None:
-            return None
-        return int(float(value)) == 1
+    def is_on(self) -> bool | None:
+        value = to_float(self._client.value(self._feedback))
+        return None if value is None else value > 0
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        """Turn the light on."""
-        if self._switch_id is None:
-            return
-        await self._client.update_device_value(self._device_id, self._switch_id, "1")
+        await self._client.set_value(self._command, "1")
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        """Turn the light off."""
-        if self._switch_id is None:
-            return
-        await self._client.update_device_value(self._device_id, self._switch_id, "0")
+        await self._client.set_value(self._command, "0")
 
-class GiraDimmer(GiraLight):
-    """Representation of a Gira HomeServer dimmer."""
 
-    def __init__(self, client: GiraClient, device_id: str):
-        """Initialize the dimmer."""
-        self._client = client
-        self._device_id = device_id
-        self._switch_id = client.get_slot_id(device_id, SlotTypeEnum.DIMMER_SWITCH)
-        self._brightness_id = client.get_slot_id(device_id, SlotTypeEnum.DIMMER_BRIGHTNESS)
-        self._attr_name = client.get_device_name(device_id)
-        self._attr_unique_id = f"{DOMAIN}_dimmer_{device_id}"
-        self._attr_color_mode = ColorMode.BRIGHTNESS
-        self._attr_supported_color_modes = {ColorMode.BRIGHTNESS}
+class GiraDimmer(GiraEntity, LightEntity):
+    _attr_color_mode = ColorMode.BRIGHTNESS
+    _attr_supported_color_modes = {ColorMode.BRIGHTNESS}
+
+    def __init__(self, data: GiraData, device: GiraDevice) -> None:
+        super().__init__(data, device)
+        self._switch = device.slots["dim_s"]
+        self._level = device.slots["dim_val"]
 
     @property
-    def is_on(self) -> Optional[bool]:
-        """Return true if light is on."""
-        value = self._client.get_slot_val(self._device_id, SlotTypeEnum.DIMMER_BRIGHTNESS)
-        switch = self._client.get_slot_val(self._device_id, SlotTypeEnum.DIMMER_SWITCH)
-        if value is None or switch is None:
-            return None
-        return int(float(value)) > 0 or switch == "1"
+    def is_on(self) -> bool | None:
+        value = to_float(self._client.value(self._level))
+        return None if value is None else value > 0
 
     @property
-    def brightness(self) -> Optional[int]:
-        """Return the brightness of this light between 0..255."""
-        value = self._client.get_slot_val(self._device_id, SlotTypeEnum.DIMMER_BRIGHTNESS)
+    def brightness(self) -> int | None:
+        value = to_float(self._client.value(self._level))
         if value is None:
             return None
-        return int(float(value) * 2.55)
+        return round(percentage_to_ranged_value(BRIGHTNESS_SCALE, value))
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        """Turn the light on."""
-        if self._brightness_id is None or self._switch_id is None:
+        if (brightness := kwargs.get(ATTR_BRIGHTNESS)) is None:
+            await self._client.set_value(self._switch, "1")
             return
-
-        if kwargs.get(ATTR_BRIGHTNESS) is None:
-            await self._client.update_device_value(self._device_id, self._switch_id, "1")
-            return
-
-        brightness = round(kwargs[ATTR_BRIGHTNESS] / 2.55, 1)
-        await self._client.update_device_value(self._device_id, self._brightness_id, f"{brightness}")
+        percent = ranged_value_to_percentage(BRIGHTNESS_SCALE, brightness)
+        await self._client.set_value(self._level, f"{percent:.1f}")
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        """Turn the light off."""
-        if self._switch_id is None:
-            return
-        await self._client.update_device_value(self._device_id, self._switch_id, "0")
-        self._client.set_slot_val(self._device_id, SlotTypeEnum.DIMMER_BRIGHTNESS, "0")
+        await self._client.set_value(self._switch, "0")

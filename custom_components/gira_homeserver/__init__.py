@@ -1,109 +1,79 @@
-"""Gira Homeserver Integration"""
+"""Gira HomeServer integration."""
 
 from __future__ import annotations
 
 import logging
+import xml.etree.ElementTree as ET
+from dataclasses import replace
 
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
+from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryError, ConfigEntryNotReady
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .client import GiraClient, State
-from .const import DOMAIN
+from .client import GiraAuthError, GiraClient, GiraConnectionError
+from .const import CONF_HIDDEN, DOMAIN
+from .data import GiraConfigEntry, GiraData
+from .project import parse_project
+from .registry import migrate_unique_ids, remove_hidden, sync_areas
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [
-    Platform.LIGHT,
-    Platform.COVER,
-    Platform.CLIMATE,
-    Platform.SWITCH,
-]
+PLATFORMS = [Platform.BUTTON, Platform.CLIMATE, Platform.COVER, Platform.LIGHT, Platform.SWITCH]
+STATE_TIMEOUT = 10
 
 
-async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    """Set up the Gira HomeServer integration from configuration.yaml."""
-    hass.data.setdefault(DOMAIN, {})
-    return True
-
-
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up Gira Homeserver from a config entry."""
-    config = entry.data
-    host = config.get("host")
-    port = config.get("port", 80)
-    username = config.get("username")
-    password = config.get("password")
-
-    if not host or not username or not password:
-        _LOGGER.error("Missing configuration data")
-        return False
-
-    # Initialize the Client
-    client = GiraClient(host, port, username, password)
-
+async def async_setup_entry(hass: HomeAssistant, entry: GiraConfigEntry) -> bool:
+    client = GiraClient(
+        async_get_clientsession(hass),
+        entry.data[CONF_HOST],
+        entry.data[CONF_PORT],
+        entry.data[CONF_USERNAME],
+        entry.data[CONF_PASSWORD],
+    )
     try:
-        # Attempt to connect and validate authentication
         await client.connect()
-        if client.state != State.LOGGED_IN:
-            _LOGGER.error("Failed to log in to Gira Homeserver")
-            return False
-    except Exception as ex:
-        _LOGGER.error("Error connecting to Gira Homeserver: %s", ex)
-        return False
+        project = parse_project(await client.fetch_project())
+    except GiraAuthError as err:
+        raise ConfigEntryAuthFailed("The HomeServer rejected the login") from err
+    except GiraConnectionError as err:
+        await client.disconnect()
+        raise ConfigEntryNotReady(str(err)) from err
+    except ET.ParseError as err:
+        await client.disconnect()
+        raise ConfigEntryError("The HomeServer project could not be read") from err
 
-    # Store the client in Home Assistant's data for this domain
-    hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = client
+    hub = dr.async_get(hass).async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, entry.entry_id)},
+        name=entry.title,
+        manufacturer="Gira",
+        model="HomeServer",
+    )
+    hidden = set(entry.options.get(CONF_HIDDEN, []))
+    visible = replace(project, devices=tuple(d for d in project.devices if d.key not in hidden))
+    entry.runtime_data = GiraData(client, visible, hub.id, project.devices)
+    remove_hidden(hass, entry, hidden)
+    sync_areas(hass, visible)
+    await migrate_unique_ids(hass, entry)
 
-    # Register services
-    async def handle_refresh_devices(call):
-        """Handle the refresh devices service call."""
-        client = hass.data[DOMAIN][entry.entry_id]
-        await client.discover_devices()
-
-    async def handle_send_raw_command(call):
-        """Handle the send raw command service call."""
-        client = hass.data[DOMAIN][entry.entry_id]
-        command = call.data.get("command")
+    async def listen() -> None:
         try:
-            await client._write(command)
-        except Exception as err:
-            _LOGGER.error("Error sending raw command: %s", err)
+            await client.run()
+        except GiraAuthError:
+            entry.async_start_reauth(hass)
 
-    async def handle_set_device_value(call):
-        """Handle the set device value service call."""
-        client = hass.data[DOMAIN][entry.entry_id]
-        device_id = call.data.get("device_id")
-        value = call.data.get("value")
-        try:
-            await client.update_device_value(device_id, value)
-        except Exception as err:
-            _LOGGER.error("Error setting device value: %s", err)
+    entry.async_create_background_task(hass, listen(), "gira_homeserver_listener")
+    if not await client.wait_for_state(STATE_TIMEOUT):
+        _LOGGER.warning("No state received from the HomeServer yet")
 
-    hass.services.async_register(
-        DOMAIN, "refresh_devices", handle_refresh_devices
-    )
-    hass.services.async_register(
-        DOMAIN, "send_raw_command", handle_send_raw_command
-    )
-    hass.services.async_register(
-        DOMAIN, "set_device_value", handle_set_device_value
-    )
-
-    # Forward the config entry to supported platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload a config entry."""
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-
-    if unload_ok:
-        client = hass.data[DOMAIN].pop(entry.entry_id, None)
-        if client:
-            await client.disconnect()
-
-    return unload_ok
+async def async_unload_entry(hass: HomeAssistant, entry: GiraConfigEntry) -> bool:
+    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unloaded:
+        await entry.runtime_data.client.disconnect()
+    return unloaded

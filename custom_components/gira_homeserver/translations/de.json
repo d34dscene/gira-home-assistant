@@ -1,0 +1,46 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Gira HomeServer",
+        "description": "Gib die Verbindungsdaten deines Gira HomeServers ein.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "username": "Benutzername",
+          "password": "Passwort"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Erneut anmelden",
+        "description": "Der HomeServer hat die gespeicherte Anmeldung abgelehnt.",
+        "data": {
+          "username": "Benutzername",
+          "password": "Passwort"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung fehlgeschlagen",
+      "invalid_auth": "Benutzername oder Passwort falsch"
+    },
+    "abort": {
+      "already_configured": "Dieser HomeServer ist bereits eingerichtet",
+      "reauth_successful": "Anmeldung aktualisiert"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Geräte ausblenden",
+        "description": "Wähle Geräte, die nicht angeschlossen sind oder die du nicht in Home Assistant haben willst.",
+        "data": {
+          "hidden": "Ausgeblendete Geräte"
+        }
+      }
+    },
+    "abort": {
+      "not_loaded": "Richte zuerst die Integration ein."
+    }
+  }
+}

@@ -1,24 +1,46 @@
 {
   "config": {
-    "abort": {
-      "already_configured": "Device is already configured"
-    },
-    "error": {
-      "cannot_connect": "Failed to connect",
-      "invalid_auth": "Invalid authentication",
-      "unknown": "Unexpected error"
-    },
     "step": {
       "user": {
+        "title": "Gira HomeServer",
+        "description": "Enter the connection details of your Gira HomeServer.",
         "data": {
           "host": "Host",
           "port": "Port",
           "username": "Username",
           "password": "Password"
-        },
-        "description": "Enter your Gira HomeServer connection details.",
-        "title": "Gira HomeServer"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Log in again",
+        "description": "The HomeServer rejected the saved login.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
       }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect",
+      "invalid_auth": "Invalid username or password"
+    },
+    "abort": {
+      "already_configured": "This HomeServer is already configured",
+      "reauth_successful": "Login updated"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Hide devices",
+        "description": "Tick the devices that are not wired or that you never want in Home Assistant.",
+        "data": {
+          "hidden": "Hidden devices"
+        }
+      }
+    },
+    "abort": {
+      "not_loaded": "Set up the integration first."
     }
   }
 }

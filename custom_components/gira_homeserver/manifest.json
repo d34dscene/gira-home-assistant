@@ -1,15 +1,13 @@
 {
   "domain": "gira_homeserver",
   "name": "Gira HomeServer",
-  "config_flow": true,
-  "documentation": "https://github.com/d34dscene/gira-home-assistant/wiki",
   "codeowners": ["@d34dscene"],
-  "issue_tracker": "https://github.com/d34dscene/gira-home-assistant/issues",
-  "requirements": ["aiohttp"],
-  "ssdp": [],
-  "zeroconf": [],
-  "homekit": {},
-  "dependencies": [],
+  "config_flow": true,
+  "dependencies": ["homeassistant"],
+  "documentation": "https://github.com/d34dscene/gira-home-assistant",
+  "integration_type": "hub",
   "iot_class": "local_push",
-  "version": "0.0.1"
+  "issue_tracker": "https://github.com/d34dscene/gira-home-assistant/issues",
+  "requirements": [],
+  "version": "0.1.0"
 }

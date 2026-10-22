@@ -74,3 +74,7 @@ uv run pytest
 Tests run against an in-process fake HomeServer. `tests/test_live.py` is a
 read-only smoke test against a real box. It sends no commands and is skipped
 unless `GIRA_HOST`, `GIRA_PORT`, `GIRA_USERNAME` and `GIRA_PASSWORD` are set.
+
+## License
+
+MIT. Not affiliated with Gira.

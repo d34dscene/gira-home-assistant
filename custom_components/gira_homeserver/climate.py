@@ -32,7 +32,7 @@ async def async_setup_entry(
 
 
 class GiraClimate(GiraEntity, ClimateEntity):
-    _attr_temperature_unit = UnitOfTemperature.CELSIUS
+    _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
     _attr_hvac_modes = [HVACMode.HEAT]
     _attr_hvac_mode = HVACMode.HEAT
@@ -45,13 +45,18 @@ class GiraClimate(GiraEntity, ClimateEntity):
         self._actual = device.slots["slot_temp_actual"]
 
     @property
-    def current_temperature(self) -> float | None:
+    def native_current_temperature(self) -> float | None:
         return to_float(self._client.value(self._actual))
 
     @property
-    def target_temperature(self) -> float | None:
+    def native_target_temperature(self) -> float | None:
         value = to_float(self._client.value(self._target))
         return value if value else None
+
+    # Old names for HA < 2026.11. HA ignores them when the native ones exist.
+    _attr_temperature_unit = _attr_native_temperature_unit
+    current_temperature = native_current_temperature
+    target_temperature = native_target_temperature
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
         await self._client.set_value(self._setpoint, str(kwargs[ATTR_TEMPERATURE]))
